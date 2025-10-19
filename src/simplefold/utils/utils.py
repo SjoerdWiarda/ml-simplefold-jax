@@ -4,20 +4,20 @@
 #
 
 import os
+import warnings
+from pathlib import Path
+from typing import Any, Callable, Dict, Sequence, Tuple
+
 import rich
 import rich.syntax
 import rich.tree
-from rich.prompt import Prompt
-import warnings
-from typing import Any, Callable, Dict, Tuple
-from omegaconf import DictConfig
-from pathlib import Path
-from typing import Sequence
 from hydra.core.hydra_config import HydraConfig
 from lightning_utilities.core.rank_zero import rank_zero_only
 from omegaconf import DictConfig, OmegaConf, open_dict
+from rich.prompt import Prompt
 
-from utils.pylogger import RankedLogger
+from simplefold.utils.pylogger import RankedLogger
+
 log = RankedLogger(__name__, rank_zero_only=True)
 
 

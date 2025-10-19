@@ -3,16 +3,16 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
-# Started from https://github.com/jwohlwend/boltz, 
-# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro. 
+# Started from https://github.com/jwohlwend/boltz,
+# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro.
 
 from dataclasses import astuple, dataclass
 
 import numpy as np
 
-from boltz_data_pipeline import const
-from boltz_data_pipeline.tokenize.tokenizer import Tokenizer
-from boltz_data_pipeline.types import Input, Token, TokenBond, Tokenized
+from simplefold.boltz_data_pipeline import const
+from simplefold.boltz_data_pipeline.tokenize.tokenizer import Tokenizer
+from simplefold.boltz_data_pipeline.types import Input, Token, TokenBond, Tokenized
 
 
 @dataclass

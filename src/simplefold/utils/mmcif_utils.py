@@ -3,8 +3,8 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
-# Started from https://github.com/jwohlwend/boltz, 
-# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro. 
+# Started from https://github.com/jwohlwend/boltz,
+# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro.
 
 import contextlib
 from dataclasses import dataclass, replace
@@ -17,8 +17,8 @@ from rdkit.Chem import AllChem
 from rdkit.Chem.rdchem import Conformer, Mol
 from sklearn.neighbors import KDTree
 
-from boltz_data_pipeline import const
-from boltz_data_pipeline.types import (
+from simplefold.boltz_data_pipeline import const
+from simplefold.boltz_data_pipeline.types import (
     Atom,
     Bond,
     Chain,

@@ -3,30 +3,26 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
-import torch
-import lightning.pytorch as pl
-from lightning.pytorch import LightningDataModule, LightningModule
 import hydra
+import lightning.pytorch as pl
+import torch
+from lightning.pytorch import LightningDataModule, LightningModule
 from omegaconf import OmegaConf
 
-from utils.utils import (
-    extras,
-    create_folders,
-    task_wrapper,
-)
-from utils.instantiators import (
+from simplefold.utils.instantiators import (
     instantiate_callbacks,
     instantiate_loggers,
     instantiate_trainer,
 )
-from utils.logging_utils import log_hyperparameters
-from utils.pylogger import RankedLogger
+from simplefold.utils.logging_utils import log_hyperparameters
+from simplefold.utils.pylogger import RankedLogger
+from simplefold.utils.utils import create_folders, extras, task_wrapper
 
 log = RankedLogger(__name__, rank_zero_only=True)
 
 torch.set_float32_matmul_precision("medium")
-torch.backends.cuda.matmul.allow_tf32 = True # This flag defaults to False
-torch.backends.cudnn.allow_tf32 = True       # This flag defaults to True
+torch.backends.cuda.matmul.allow_tf32 = True  # This flag defaults to False
+torch.backends.cudnn.allow_tf32 = True  # This flag defaults to True
 
 
 @task_wrapper
@@ -86,7 +82,9 @@ def train(cfg):
     )
 
 
-@hydra.main(version_base="1.3", config_path="../../configs", config_name="base_train.yaml")
+@hydra.main(
+    version_base="1.3", config_path="../../configs", config_name="base_train.yaml"
+)
 def submit_run(cfg):
     OmegaConf.resolve(cfg)
     extras(cfg)

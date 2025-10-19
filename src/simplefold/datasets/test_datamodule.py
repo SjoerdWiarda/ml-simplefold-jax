@@ -5,23 +5,24 @@
 
 import os
 import pickle
-import blobfile as bf
+from dataclasses import asdict
 from pathlib import Path
 from typing import Optional
-from dataclasses import asdict
 
+import blobfile as bf
 import torch.distributed as dist
+import torch.multiprocessing
 from lightning import LightningDataModule
 from torch.utils.data import DataLoader
-import torch.multiprocessing
-torch.multiprocessing.set_sharing_strategy('file_system')
 
-from boltz_data_pipeline.types import Manifest
-from boltz_data_pipeline.feature.featurizer import BoltzFeaturizer
-from boltz_data_pipeline.tokenize.boltz_protein import BoltzTokenizer
-from boltz_data_pipeline.filter.dynamic.filter import DynamicFilter
-from boltz_data_pipeline import const
-from utils.datamodule_utils import load_input, collate, restype_3to1
+torch.multiprocessing.set_sharing_strategy("file_system")
+
+from simplefold.boltz_data_pipeline import const
+from simplefold.boltz_data_pipeline.feature.featurizer import BoltzFeaturizer
+from simplefold.boltz_data_pipeline.filter.dynamic.filter import DynamicFilter
+from simplefold.boltz_data_pipeline.tokenize.boltz_protein import BoltzTokenizer
+from simplefold.boltz_data_pipeline.types import Manifest
+from simplefold.utils.datamodule_utils import collate, load_input, restype_3to1
 
 
 class SimpleFoldPredictionDataset(torch.utils.data.Dataset):
@@ -68,14 +69,18 @@ class SimpleFoldPredictionDataset(torch.utils.data.Dataset):
         try:
             input_data = load_input(record, self.target_dir)
         except Exception as e:  # noqa: BLE001
-            print(f"Failed to load input for {record.id} with error {e}. Skipping.")  # noqa: T201
+            print(
+                f"Failed to load input for {record.id} with error {e}. Skipping."
+            )  # noqa: T201
             return self.__getitem__(0)
 
         # Tokenize structure
         try:
             tokenized = self.tokenizer.tokenize(input_data)
         except Exception as e:  # noqa: BLE001
-            print(f"Tokenizer failed on {record.id} with error {e}. Skipping.")  # noqa: T201
+            print(
+                f"Tokenizer failed on {record.id} with error {e}. Skipping."
+            )  # noqa: T201
             return self.__getitem__(0)
 
         max_num_tokens = len(tokenized.tokens)
@@ -109,14 +114,18 @@ class SimpleFoldPredictionDataset(torch.utils.data.Dataset):
                 compute_symmetries=True,
             )
         except Exception as e:  # noqa: BLE001
-            print(f"Featurizer failed on {record.id} with error {e}. Skipping.")  # noqa: T201
+            print(
+                f"Featurizer failed on {record.id} with error {e}. Skipping."
+            )  # noqa: T201
             return self.__getitem__(0)
 
         features["aa_seq"] = sequence
         features["record"] = asdict(record)
         features["num_repeats"] = torch.tensor(self.num_repeats)
-        features['max_num_tokens'] = torch.tensor(max_num_tokens, dtype=torch.long)
-        features['cropped_num_tokens'] = torch.tensor(len(tokenized.tokens), dtype=torch.long)
+        features["max_num_tokens"] = torch.tensor(max_num_tokens, dtype=torch.long)
+        features["cropped_num_tokens"] = torch.tensor(
+            len(tokenized.tokens), dtype=torch.long
+        )
 
         return features
 
@@ -161,9 +170,7 @@ class SimpleFoldInferenceDataModule(LightningDataModule):
         # Filter training records
         if filters is not None:
             records = [
-                record
-                for record in records
-                if all(f.filter(record) for f in filters)
+                record for record in records if all(f.filter(record) for f in filters)
             ]
 
         if max_nsamples is not None:

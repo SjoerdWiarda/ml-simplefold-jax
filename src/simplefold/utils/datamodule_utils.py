@@ -3,22 +3,28 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
-import torch
-from torch import Tensor
 import json
-import numpy as np
-from typing import Optional
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
-from boltz_data_pipeline.feature.pad import pad_to_max
-from boltz_data_pipeline.crop.cropper import Cropper
-from boltz_data_pipeline.tokenize.boltz_protein import BoltzTokenizer
-from boltz_data_pipeline.feature.featurizer import BoltzFeaturizer
-from processor.protein_processor import ProteinDataProcessor
-from boltz_data_pipeline.types import Connection, Input, Manifest, Record, Structure
-from boltz_data_pipeline import const
+import numpy as np
+import torch
+from torch import Tensor
 
+from simplefold.boltz_data_pipeline import const
+from simplefold.boltz_data_pipeline.crop.cropper import Cropper
+from simplefold.boltz_data_pipeline.feature.featurizer import BoltzFeaturizer
+from simplefold.boltz_data_pipeline.feature.pad import pad_to_max
+from simplefold.boltz_data_pipeline.tokenize.boltz_protein import BoltzTokenizer
+from simplefold.boltz_data_pipeline.types import (
+    Connection,
+    Input,
+    Manifest,
+    Record,
+    Structure,
+)
+from simplefold.processor.protein_processor import ProteinDataProcessor
 
 restype_1to3 = {
     "A": "ALA",
@@ -51,6 +57,7 @@ restype_3to1["<pad>"] = "X"
 @dataclass
 class Dataset:
     """Data holder."""
+
     tokenized_dir: str
     target_dir: Path
     esm_dir: str
@@ -66,6 +73,7 @@ class Dataset:
 @dataclass
 class DatasetConfig:
     """Dataset configuration."""
+
     data_name: str
     tokenized_dir: str
     target_dir: Path
@@ -177,7 +185,7 @@ def extract_sequence_from_tokens(tokenized):
 
 
 def process_one_inference_structure(
-    structure_path, 
+    structure_path,
     record_path,
     tokenizer: BoltzTokenizer,
     featurizer: BoltzFeaturizer,
@@ -197,8 +205,10 @@ def process_one_inference_structure(
     features["aa_seq"] = sequence
     features["record"] = record
     features["num_repeats"] = torch.tensor(1)
-    features['max_num_tokens'] = torch.tensor(len(tokenized.tokens), dtype=torch.long)
-    features['cropped_num_tokens'] = torch.tensor(len(tokenized.tokens), dtype=torch.long)
+    features["max_num_tokens"] = torch.tensor(len(tokenized.tokens), dtype=torch.long)
+    features["cropped_num_tokens"] = torch.tensor(
+        len(tokenized.tokens), dtype=torch.long
+    )
 
     batch = collate([features])
 

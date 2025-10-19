@@ -3,8 +3,8 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
-# Started from https://github.com/jwohlwend/boltz, 
-# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro. 
+# Started from https://github.com/jwohlwend/boltz,
+# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro.
 
 from collections.abc import Mapping
 from pathlib import Path
@@ -12,8 +12,8 @@ from pathlib import Path
 from Bio import SeqIO
 from rdkit.Chem.rdchem import Mol
 
-from boltz_data_pipeline.parse.yaml import parse_boltz_schema
-from boltz_data_pipeline.types import Target
+from simplefold.boltz_data_pipeline.parse.yaml import parse_boltz_schema
+from simplefold.boltz_data_pipeline.types import Target
 
 
 def parse_fasta(path: Path, ccd: Mapping[str, Mol]) -> Target:  # noqa: C901

@@ -4,10 +4,11 @@
 #
 
 import math
-from einops import rearrange
+
 import torch
-from torch import nn
 import torch.nn.functional as F
+from einops import rearrange
+from torch import nn
 
 
 def modulate(x, shift, scale):
@@ -102,7 +103,6 @@ class EfficientSelfAttentionLayer(SelfAttentionLayer):
 
         q, k = self.q_norm(q), self.k_norm(k)
         x = nn.functional.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask)
-
         x = x.transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
         x = self.proj_drop(x)
@@ -182,7 +182,7 @@ class TimestepEmbedder(nn.Module):
             -math.log(max_period)
             * torch.arange(start=0, end=half, dtype=torch.float32)
             / half
-        ).to(device=t.device)
+        ).to(device=t.device, dtype=t.dtype)
         args = t[:, None].float() * freqs[None]
         embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
         if dim % 2:
@@ -201,13 +201,14 @@ class ConditionEmbedder(nn.Module):
     """
     Embeds class labels into vector representations. Also handles label dropout for classifier-free guidance.
     """
+
     def __init__(self, input_dim, hidden_size, dropout_prob):
         super().__init__()
         self.proj = nn.Sequential(
-                nn.Linear(input_dim, hidden_size),
-                nn.LayerNorm(hidden_size),
-                nn.SiLU(),
-            )
+            nn.Linear(input_dim, hidden_size),
+            nn.LayerNorm(hidden_size),
+            nn.SiLU(),
+        )
         self.dropout_prob = dropout_prob
         self.null_token = nn.Parameter(torch.randn(input_dim), requires_grad=True)
 

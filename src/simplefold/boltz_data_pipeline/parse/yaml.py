@@ -3,16 +3,16 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
-# Started from https://github.com/jwohlwend/boltz, 
-# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro. 
+# Started from https://github.com/jwohlwend/boltz,
+# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro.
 
 from pathlib import Path
 
 import yaml
 from rdkit.Chem.rdchem import Mol
 
-from boltz_data_pipeline.parse.schema import parse_boltz_schema
-from boltz_data_pipeline.types import Target
+from simplefold.boltz_data_pipeline.parse.schema import parse_boltz_schema
+from simplefold.boltz_data_pipeline.types import Target
 
 
 def parse_yaml(path: Path, ccd: dict[str, Mol]) -> Target:

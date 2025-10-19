@@ -1,4 +1,6 @@
-*__pycache__/
+**/__pycache__/
 *.DS_Store
 *simplefold.egg-info
-artifacts/
+**/artifacts/
+.venv/
+/.pytest_cache/

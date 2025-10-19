@@ -3,8 +3,8 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
-# Started from https://github.com/jwohlwend/boltz, 
-# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro. 
+# Started from https://github.com/jwohlwend/boltz,
+# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro.
 
 import math
 from typing import Optional
@@ -14,15 +14,15 @@ import torch
 from torch import Tensor, from_numpy
 from torch.nn.functional import one_hot
 
-from boltz_data_pipeline import const
-from boltz_data_pipeline.feature.pad import pad_dim
-from boltz_data_pipeline.feature.symmetry import (
+from simplefold.boltz_data_pipeline import const
+from simplefold.boltz_data_pipeline.feature.pad import pad_dim
+from simplefold.boltz_data_pipeline.feature.symmetry import (
     get_amino_acids_symmetries,
     get_chain_symmetries,
     get_ligand_symmetries,
 )
-from boltz_data_pipeline.types import Tokenized
-from utils.boltz_utils import center_random_augmentation
+from simplefold.boltz_data_pipeline.types import Tokenized
+from simplefold.utils.boltz_utils import center_random_augmentation
 
 
 def select_subset_from_mask(mask, p):
@@ -79,7 +79,7 @@ def process_token_features(
     resolved_mask = from_numpy(token_data["resolved_mask"]).float()
     disto_mask = from_numpy(token_data["disto_mask"]).float()
 
-    # Pocket conditioned feature 
+    # Pocket conditioned feature
     # (dummy feature in SimpleFold)
     pocket_feature = (
         np.zeros(len(token_data)) + const.pocket_contact_info["UNSPECIFIED"]
@@ -262,7 +262,7 @@ def process_atom_features(
     for i, name in enumerate(atom_data["name"]):
         real_name = [chr(c + 32) for c in name if c != 0]
         real_name = "".join(real_name)
-        if real_name in ('CA', 'N', 'C', 'O'):
+        if real_name in ("CA", "N", "C", "O"):
             is_backbone[i] = True
     ref_atom_name_chars = from_numpy(atom_data["name"]).long()
     ref_element = from_numpy(atom_data["element"]).long()

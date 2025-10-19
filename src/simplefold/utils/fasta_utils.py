@@ -3,34 +3,28 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
-# Started from https://github.com/jwohlwend/boltz, 
-# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro. 
+# Started from https://github.com/jwohlwend/boltz,
+# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro.
+
+import json
+import pickle
+import urllib.request
+from collections.abc import Mapping
+from dataclasses import asdict
+from pathlib import Path
 
 import click
-import pickle
-import json
-import urllib.request
-from pathlib import Path
+from Bio import SeqIO
+from rdkit.Chem.rdchem import Mol
 from tqdm import tqdm
-from dataclasses import asdict
 
-from boltz_data_pipeline.types import Manifest, Record
-
+from simplefold.boltz_data_pipeline.parse.yaml import parse_boltz_schema
+from simplefold.boltz_data_pipeline.types import Manifest, Record, Target
 
 CCD_URL = "https://huggingface.co/boltz-community/boltz-1/resolve/main/ccd.pkl"
 MODEL_URL = (
     "https://huggingface.co/boltz-community/boltz-1/resolve/main/boltz1_conf.ckpt"
 )
-
-
-from collections.abc import Mapping
-from pathlib import Path
-
-from Bio import SeqIO
-from rdkit.Chem.rdchem import Mol
-
-from boltz_data_pipeline.parse.yaml import parse_boltz_schema
-from boltz_data_pipeline.types import Target
 
 
 def parse_fasta(path: Path, ccd: Mapping[str, Mol]) -> Target:  # noqa: C901
@@ -68,7 +62,7 @@ def parse_fasta(path: Path, ccd: Mapping[str, Mol]) -> Target:  # noqa: C901
         seq = str(seq_record.seq)
         molecule = {
             "protein": {
-                "id": "A", # Set a default chain ID
+                "id": "A",  # Set a default chain ID
                 "sequence": seq,
                 "modifications": [],
                 "msa": None,

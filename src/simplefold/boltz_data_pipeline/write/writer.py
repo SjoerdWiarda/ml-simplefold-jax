@@ -3,27 +3,23 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
-# Started from https://github.com/jwohlwend/boltz, 
-# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro. 
+# Started from https://github.com/jwohlwend/boltz,
+# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro.
 
-from dataclasses import asdict, replace
 import json
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Literal
 
 import numpy as np
+import torch
 from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.callbacks import BasePredictionWriter
-import torch
 from torch import Tensor
 
-from boltz_data_pipeline.types import (
-    Interface,
-    Record,
-    Structure,
-)
-from boltz_data_pipeline.write.mmcif import to_mmcif
-from boltz_data_pipeline.write.pdb import to_pdb
+from simplefold.boltz_data_pipeline.types import Interface, Record, Structure
+from simplefold.boltz_data_pipeline.write.mmcif import to_mmcif
+from simplefold.boltz_data_pipeline.write.pdb import to_pdb
 
 
 class BoltzWriter(BasePredictionWriter):

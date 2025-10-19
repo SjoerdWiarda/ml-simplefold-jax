@@ -7,16 +7,16 @@
 # licensed under MIT License, Copyright (c) Meta Platforms, Inc. and affiliates.
 
 from typing import Union
+
+import esm
 import mlx.core as mx
 import mlx.nn as nn
-
 from model.mlx.esm_modules import (
     ContactPredictionHead,
     ESM1bLayerNorm,
     RobertaLMHead,
     TransformerLayer,
 )
-import esm
 
 
 def masked_fill_mlx(x, mask, value):
@@ -53,7 +53,6 @@ class ESM2(nn.Module):
     def _init_submodules(self):
         self.embed_scale = 1
         self.embed_tokens = mx.zeros((self.alphabet_size, self.embed_dim))
-
         self.layers = [
             TransformerLayer(
                 self.embed_dim,
@@ -85,7 +84,6 @@ class ESM2(nn.Module):
     ):
         if return_contacts:
             need_head_weights = True
-
         assert tokens.ndim == 2
         padding_mask = mx.equal(tokens, self.padding_idx)  # B, T
 

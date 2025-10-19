@@ -4,9 +4,10 @@
 #
 
 import torch
-from torch import nn
 from timm.models.vision_transformer import Mlp
-from model.torch.layers import modulate, SwiGLUFeedForward
+from torch import nn
+
+from simplefold.model.torch.layers import SwiGLUFeedForward, modulate
 
 
 class DiTBlock(nn.Module):

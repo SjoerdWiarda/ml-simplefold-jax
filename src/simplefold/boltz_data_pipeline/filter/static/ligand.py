@@ -3,14 +3,14 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
-# Started from https://github.com/jwohlwend/boltz, 
-# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro. 
+# Started from https://github.com/jwohlwend/boltz,
+# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro.
 
 import numpy as np
 
-from boltz_data_pipeline import const
-from boltz_data_pipeline.types import Structure
-from boltz_data_pipeline.filter.static.filter import StaticFilter
+from simplefold.boltz_data_pipeline import const
+from simplefold.boltz_data_pipeline.filter.static.filter import StaticFilter
+from simplefold.boltz_data_pipeline.types import Structure
 
 LIGAND_EXCLUSION = {
     "144",

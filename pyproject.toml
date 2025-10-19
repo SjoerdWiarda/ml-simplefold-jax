@@ -7,7 +7,7 @@ name = "simplefold"
 version = "0.1.0"
 description = "Folding proteins with SimpleFold."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 license = { file = "LICENSE" }
 authors = [
     { name = "Yuyang Wang", email = "yuyangw@apple.com" },
@@ -36,6 +36,16 @@ dependencies = [
     "scikit-learn==1.7.1",
     "pandas==2.3.1",
     "seaborn==0.13.2",
+    "jax[cuda13]",
+    "orbax",
+    "flax",
+    "fair-esm @ git+https://github.com/facebookresearch/esm.git"
+]
+ 
+
+[dependency-groups]
+dev = [
+    "pytest",
 ]
 
 [project.urls]
@@ -48,3 +58,10 @@ simplefold = "simplefold.cli:main"
 # Tell hatchling where your packages live when using src layout:
 [tool.hatch.build.targets.wheel]
 packages = ["src/simplefold"]
+
+
+[tool.pytest.ini_options]
+addopts = "--pdbcls=IPython.terminal.debugger:TerminalPdb -vv --pdb" # Custom debugger ipdb, -vv for super verbose (logs if each tests passes and logs full error, --pdb to activate debugger).
+testpaths = [
+    "test",
+]

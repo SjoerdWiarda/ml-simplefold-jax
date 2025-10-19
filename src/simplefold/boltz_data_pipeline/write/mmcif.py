@@ -3,8 +3,8 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
-# Started from https://github.com/jwohlwend/boltz, 
-# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro. 
+# Started from https://github.com/jwohlwend/boltz,
+# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro.
 
 import io
 from collections.abc import Iterator
@@ -17,12 +17,14 @@ from modelcif.model import AbInitioModel, Atom, ModelGroup
 from rdkit import Chem
 from torch import Tensor
 
-from boltz_data_pipeline import const
-from boltz_data_pipeline.types import Structure
-from boltz_data_pipeline.write.utils import generate_tags
+from simplefold.boltz_data_pipeline import const
+from simplefold.boltz_data_pipeline.types import Structure
+from simplefold.boltz_data_pipeline.write.utils import generate_tags
 
 
-def to_mmcif(structure: Structure, plddts: Optional[Tensor] = None) -> str:  # noqa: C901, PLR0915, PLR0912
+def to_mmcif(
+    structure: Structure, plddts: Optional[Tensor] = None
+) -> str:  # noqa: C901, PLR0915, PLR0912
     """Write a structure into an MMCIF file.
 
     Parameters
@@ -72,13 +74,19 @@ def to_mmcif(structure: Structure, plddts: Optional[Tensor] = None) -> str:  # n
 
         if mol_type == const.chain_type_ids["PROTEIN"]:
             alphabet = ihm.LPeptideAlphabet()
-            chem_comp = lambda x: ihm.LPeptideChemComp(id=x, code=x, code_canonical="X")  # noqa: E731
+            chem_comp = lambda x: ihm.LPeptideChemComp(
+                id=x, code=x, code_canonical="X"
+            )  # noqa: E731
         elif mol_type == const.chain_type_ids["DNA"]:
             alphabet = ihm.DNAAlphabet()
-            chem_comp = lambda x: ihm.DNAChemComp(id=x, code=x, code_canonical="N")  # noqa: E731
+            chem_comp = lambda x: ihm.DNAChemComp(
+                id=x, code=x, code_canonical="N"
+            )  # noqa: E731
         elif mol_type == const.chain_type_ids["RNA"]:
             alphabet = ihm.RNAAlphabet()
-            chem_comp = lambda x: ihm.RNAChemComp(id=x, code=x, code_canonical="N")  # noqa: E731
+            chem_comp = lambda x: ihm.RNAChemComp(
+                id=x, code=x, code_canonical="N"
+            )  # noqa: E731
         elif len(sequence) > 1:
             alphabet = {}
             chem_comp = lambda x: ihm.SaccharideChemComp(id=x)  # noqa: E731

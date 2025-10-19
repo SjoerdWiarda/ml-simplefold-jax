@@ -6,17 +6,24 @@
 # Started from https://github.com/facebookresearch/esm/tree/main,
 # licensed under MIT License, Copyright (c) Meta Platforms, Inc. and affiliates.
 
-import torch
 import typing as T
-import numpy as np
 from functools import partial
 
-from utils import residue_constants
+import numpy as np
+import torch
+
+from simplefold.utils import residue_constants
+
+try:
+    import jax
+except:
+    pass
 
 try:
     import mlx.core as mx
 except:
     pass
+
 
 load_fn = torch.hub.load
 esm_registry = {
@@ -197,17 +204,24 @@ def compute_language_model_representations(
 
     if backend == "mlx":
         esmaa = mx.array(esmaa)
-
+    elif backend == "torch":
+        pass
+    elif backend == "jax":
+        esmaa = jax.numpy.asarray(esmaa)
     res = esm(
         esmaa,
         repr_layers=range(esm.num_layers + 1),
         need_head_weights=False,
     )
-    if backend == "mlx":
-        res['representations'] = {k: torch.from_numpy(np.array(v)) for k,v in res['representations'].items()}
+    if backend == "mlx" or backend == "jax":
+        res["representations"] = {
+            k: torch.from_numpy(np.array(v)) for k, v in res["representations"].items()
+        }
+    elif backend == "torch":
+        pass
+    else:
+        raise NotImplementedError
 
-    esm_s = torch.stack(
-        [v for _, v in sorted(res["representations"].items())], dim=2
-    )
+    esm_s = torch.stack([v for _, v in sorted(res["representations"].items())], dim=2)
     esm_s = esm_s[:, 1:-1]  # B, L, nLayers, C
-    return esm_s, None
+    return esm_s

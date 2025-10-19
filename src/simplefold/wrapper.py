@@ -4,33 +4,52 @@
 #
 
 import os
-import torch
+from itertools import starmap
+from pathlib import Path
+
 import hydra
 import omegaconf
-from pathlib import Path
-from itertools import starmap
+import torch
 
-from model.flow import LinearPath
-from model.torch.sampler import EMSampler
+from simplefold.boltz_data_pipeline.feature.featurizer import BoltzFeaturizer
+from simplefold.boltz_data_pipeline.tokenize.boltz_protein import BoltzTokenizer
+from simplefold.model.flow import LinearPath
+from simplefold.model.torch.sampler import EMSampler
+from simplefold.processor.protein_processor import ProteinDataProcessor
+from simplefold.utils.boltz_utils import process_structure, save_structure
+from simplefold.utils.datamodule_utils import process_one_inference_structure
+from simplefold.utils.esm_utils import _af2_to_esm, esm_registry
+from simplefold.utils.fasta_utils import download_fasta_utilities, process_fastas
 
-from processor.protein_processor import ProteinDataProcessor
-from utils.datamodule_utils import process_one_inference_structure
-from utils.esm_utils import _af2_to_esm, esm_registry
-from utils.boltz_utils import process_structure, save_structure
-from utils.fasta_utils import process_fastas, download_fasta_utilities
-from boltz_data_pipeline.feature.featurizer import BoltzFeaturizer
-from boltz_data_pipeline.tokenize.boltz_protein import BoltzTokenizer
-
-try: 
+try:
     import mlx.core as mx
-    from mlx.utils import tree_unflatten, tree_flatten
-    from model.mlx.sampler import EMSampler as EMSamplerMLX
-    from model.mlx.esm_network import ESM2 as ESM2MLX
-    from utils.mlx_utils import map_torch_to_mlx, map_plddt_torch_to_mlx
+    from mlx.utils import tree_flatten, tree_unflatten
+
+    from simplefold.model.mlx.esm_network import ESM2 as ESM2MLX
+    from simplefold.model.mlx.sampler import EMSampler as EMSamplerMLX
+    from simplefold.utils.mlx_utils import map_plddt_torch_to_mlx, map_torch_to_mlx
+
     MLX_AVAILABLE = True
 except:
     MLX_AVAILABLE = False
     print("MLX not installed, skip importing MLX related packages.")
+
+try:
+    import jax
+    from flax import nnx
+
+    from simplefold.model.jax.esm_network import ESM2 as ESM2JAX
+    from simplefold.model.jax.sampler import EMSampler as EMSamplerJAX
+    from simplefold.utils.jax_utils import (
+        convert_to_jax_dict,
+        replace_by_torch_dict,
+        unflatten_state_dict,
+    )
+
+    JAX_AVAILABLE = True
+except:
+    print("JAX + Flax not installed, skip importing flax related packages.")
+    JAX_AVAILABLE = False
 
 
 ckpt_url_dict = {
@@ -62,6 +81,11 @@ class ModelWrapper:
         if self.backend == "mlx" and not MLX_AVAILABLE:
             self.backend = "torch"
             print("MLX not installed, switch to torch backend.")
+
+        if self.backend == "jax" and not JAX_AVAILABLE:
+            self.backend = "torch"
+            print("MLX not installed, switch to torch backend.")
+
         self.folding_model = None
         self.plddt_out_module = None
         self.plddt_latent_module = None
@@ -70,9 +94,13 @@ class ModelWrapper:
 
     def get_device(self):
         if self.backend == "torch":
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            device = (
+                "cpu"  # torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            )
         elif self.backend == "mlx":
             device = "cpu"
+        elif self.backend == "jax":
+            device = "cpu"  # jax.local_devices()[0]
         return device
 
     def from_pretrained_folding_model(self):
@@ -109,6 +137,24 @@ class ModelWrapper:
                 if k is not None
             }
             model.update(tree_unflatten(list(mlx_state_dict.items())))
+        elif self.backend == "jax":
+            # replace torch implementations with jax
+            with open(cfg_path, "r") as f:
+                yaml_str = f.read()
+            yaml_str = yaml_str.replace("torch", "jax")
+
+            model_config = omegaconf.OmegaConf.create(yaml_str)
+
+            model = hydra.utils.instantiate(model_config)
+
+            graphdef, state = nnx.split(model)
+            second_unflattend_dict = unflatten_state_dict(checkpoint)
+
+            updated_dict = replace_by_torch_dict(state, second_unflattend_dict)
+            model = nnx.merge(graphdef, updated_dict)
+        else:
+            raise NotImplementedError
+
         print(f"Folding model {simplefold_model} loaded with {self.backend} backend.")
 
         model.eval()
@@ -151,6 +197,8 @@ class ModelWrapper:
                 if k is not None
             }
             plddt_out_module.update(tree_unflatten(list(mlx_state_dict.items())))
+        else:
+            raise NotImplementedError
 
         plddt_out_module.eval()
         print(f"pLDDT output module loaded with {self.backend} backend.")
@@ -186,6 +234,8 @@ class ModelWrapper:
                 if k is not None
             }
             plddt_latent_module.update(tree_unflatten(list(mlx_state_dict.items())))
+        else:
+            raise NotImplementedError
 
         plddt_latent_module.eval()
         print(f"pLDDT latent module loaded with {self.backend} backend.")
@@ -217,6 +267,10 @@ class InferenceWrapper:
             self.backend = "torch"
             print("MLX not installed, switch to torch backend.")
 
+        if self.backend == "jax" and not JAX_AVAILABLE:
+            self.backend = "torch"
+            print("JAX not installed, switch to torch backend.")
+
         # create output directory
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -238,12 +292,13 @@ class InferenceWrapper:
 
     def initialize_esm_model(self):
         # load ESM2 model
-        esm_model, esm_dict = esm_registry["esm2_3B"]()
+        esm_model, esm_dict = esm_registry["esm2_3B"]()  # should be 3B
         af2_to_esm = _af2_to_esm(esm_dict)
 
         if self.backend == "torch":
             esm_model = esm_model.to(self.device)
             af2_to_esm = af2_to_esm.to(self.device)
+            self.esm_model = esm_model.eval().double()
         elif self.backend == "mlx":
             esm_model_mlx = ESM2MLX(num_layers=36, embed_dim=2560, attention_heads=40)
             esm_state_dict_torch = esm_model.cpu().state_dict()
@@ -254,15 +309,35 @@ class InferenceWrapper:
                 if k is not None
             }
             esm_model_mlx.update(tree_unflatten(list(esm_state_dict_torch.items())))
-            esm_model = esm_model_mlx
+            self.esm_model = esm_model_mlx.eval()
+        elif self.backend == "jax":
+
+            esm_model_jax = nnx.eval_shape(
+                lambda: ESM2JAX(
+                    num_layers=36, embed_dim=2560, attention_heads=40, rngs=nnx.Rngs(0)
+                )
+            )
+            esm_state_dict_torch = esm_model.cpu().state_dict()
+
+            graphdef, state = nnx.split(esm_model_jax)
+            second_unflattend_dict = unflatten_state_dict(esm_state_dict_torch)
+
+            updated_dict = replace_by_torch_dict(state, second_unflattend_dict)
+            esm_model_jax = nnx.merge(graphdef, updated_dict)
+
+            # TODO: Force inference mode
+            self.esm_model = esm_model_jax
+        else:
+            raise NotImplementedError
+
         print(f"pLM ESM-3B loaded with {self.backend} backend.")
 
-        self.esm_model = esm_model.eval()
         self.esm_dict = esm_dict
         self.af2_to_esm = af2_to_esm
 
     def initialize_others(self):
         # prepare data tokenizer, featurizer, and processor
+
         self.tokenizer = BoltzTokenizer()
         self.featurizer = BoltzFeaturizer()
         self.processor = ProteinDataProcessor(
@@ -281,6 +356,10 @@ class InferenceWrapper:
             sampler_cls = EMSampler
         elif self.backend == "mlx":
             sampler_cls = EMSamplerMLX
+        elif self.backend == "jax":
+            sampler_cls = EMSamplerJAX
+        else:
+            raise NotImplementedError
 
         self.sampler = sampler_cls(
             num_timesteps=self.num_steps,
@@ -324,6 +403,14 @@ class InferenceWrapper:
             noise = torch.randn_like(batch["coords"]).to(device)
         elif self.backend == "mlx":
             noise = mx.random.normal(batch["coords"].shape)
+        elif self.backend == "jax":
+            # batch = convert_to_jax_dict(batch)
+            noise = jax.random.normal(
+                key=jax.random.key(0), shape=batch["coords"].shape
+            )
+        else:
+            raise NotImplementedError
+
         out_dict = self.sampler.sample(model, self.flow, noise, batch)
 
         plddt_out_module = plddt_model["plddt_out_module"]
@@ -350,6 +437,9 @@ class InferenceWrapper:
                     out_feat["latent"],
                     batch,
                 )
+            else:
+                raise NotImplementedError
+
             # scale pLDDT to [0, 100]
             plddts = plddt_out_dict["plddt"] * 100.0
 

@@ -3,28 +3,50 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
-import torch
+from typing import Any
+
+import esm
+import esm.model.esm2
 import numpy as np
-from utils.esm_utils import (
-    af2_idx_to_esm_idx,
-    compute_language_model_representations,
-    batch_encode_sequences,
+import torch
+
+from simplefold.utils.boltz_utils import (
+    center_random_augmentation as torch_center_random,
 )
-from utils.boltz_utils import center_random_augmentation as torch_center_random
+from simplefold.utils.esm_utils import (
+    af2_idx_to_esm_idx,
+    batch_encode_sequences,
+    compute_language_model_representations,
+)
 
 try:
     import mlx.core as mx
-    from utils.mlx_utils import center_random_augmentation as mlx_center_random
+
+    from simplefold.model.jax.esm_network import ESM2 as ESM2MLX
+    from simplefold.utils.mlx_utils import (
+        center_random_augmentation as mlx_center_random,
+    )
+except:
+    pass
+
+
+try:
+    import jax
+
+    from simplefold.model.jax.esm_network import ESM2 as ESM2JAX
+    from simplefold.utils.jax_utils import (
+        center_random_augmentation as jax_center_random,
+    )
 except:
     pass
 
 
 class ProteinDataProcessor:
     def __init__(
-        self, 
-        device, 
-        scale=16.0, 
-        ref_scale=5.0, 
+        self,
+        device,
+        scale=16.0,
+        ref_scale=5.0,
         multiplicity=1,
         inference_multiplicity=1,
         backend="torch",
@@ -40,24 +62,30 @@ class ProteinDataProcessor:
             self.center_random_fn = mlx_center_random
         elif self.backend == "torch":
             self.center_random_fn = torch_center_random
+        elif self.backend == "jax":
+            self.center_random_fn = jax_center_random
         else:
-            raise ValueError(f"Unsupported backend: {self.backend}. Choose 'torch' or 'mlx'.")
+            raise ValueError(
+                f"Unsupported backend: {self.backend}. Choose 'torch', 'jax', or 'mlx'."
+            )
 
     def process_esm(
-        self, 
-        batch, 
-        esm_model=None, 
-        esm_dict=None, 
-        af2_to_esm=None,
-        inference=False,
-    ):
+        self,
+        batch: dict[str, Any],
+        esm_model: "ESM2JAX | esm.model.esm2.ESM2 | ESM2MLX | None" = None,
+        esm_dict: esm.data.Alphabet | None = None,
+        af2_to_esm: torch.Tensor | None = None,
+        inference: bool = False,
+    ) -> None:
         sequence = batch["aa_seq"]
         B = len(sequence)
         L = batch["res_type"].shape[1]
         num_tokens = batch["cropped_num_tokens"]
 
         aatype, mask, residx, linker_mask, _ = batch_encode_sequences(
-            sequence, residue_index_offset=512, chain_linker="G" * 25,
+            sequence,
+            residue_index_offset=512,
+            chain_linker="G" * 25,
         )
 
         aatype, mask, residx, linker_mask = map(
@@ -69,9 +97,11 @@ class ProteinDataProcessor:
 
         esmaa = af2_idx_to_esm_idx(aatype, mask, af2_to_esm)
 
-        multiplicity = self.multiplicity if not inference else self.inference_multiplicity
+        multiplicity = (
+            self.multiplicity if not inference else self.inference_multiplicity
+        )
 
-        esm_s_, _ = compute_language_model_representations(
+        esm_s_ = compute_language_model_representations(
             esmaa, esm_model, esm_dict, backend=self.backend
         )
 
@@ -109,7 +139,8 @@ class ProteinDataProcessor:
             if isinstance(v, torch.Tensor):
                 if multiplicity > 1:
                     v = v.repeat_interleave(multiplicity, dim=0)
-                batch[k] = v.to(self.device)
+                # TODO: check device management
+                batch[k] = v  # .to(self.device)
         return batch
 
     def batch_to_mlx(self, batch):
@@ -120,22 +151,30 @@ class ProteinDataProcessor:
                 batch[k] = mx.array(v)
         return batch
 
-    def preprocess_training(self, batch, esm_model=None, esm_dict=None, af2_to_esm=None):
+    def batch_to_jax(self, batch: dict) -> dict:
+        for k, v in batch.items():
+            if isinstance(v, torch.Tensor):
+                batch[k] = jax.numpy.asarray(v.numpy())
+            if isinstance(v, np.ndarray):
+                batch[k] = jax.numpy.asarray(v)
+        return batch
+
+    def preprocess_training(
+        self, batch, esm_model=None, esm_dict=None, af2_to_esm=None
+    ):
         batch_size, max_ntokens = batch["mol_type"].shape[:2]
         max_natoms = batch["ref_element"].shape[1]
 
-        batch['atom_to_token_idx'] = torch.argmax(
-            batch['atom_to_token'], dim=-1)
+        batch["atom_to_token_idx"] = torch.argmax(batch["atom_to_token"], dim=-1)
 
-        y = batch['coords'].float().squeeze(1) / self.scale
-        batch['coords'] = y
+        y = batch["coords"].float().squeeze(1) / self.scale
+        batch["coords"] = y
 
-        ref_y = batch['ref_pos'].float() / self.ref_scale
-        batch['ref_pos'] = ref_y
+        ref_y = batch["ref_pos"].float() / self.ref_scale
+        batch["ref_pos"] = ref_y
 
-        mol_index = torch.arange(max_natoms).unsqueeze(0).expand(
-            batch_size, -1)
-        batch['mol_index'] = mol_index
+        mol_index = torch.arange(max_natoms).unsqueeze(0).expand(batch_size, -1)
+        batch["mol_index"] = mol_index
 
         batch = self.batch_to_device(batch, multiplicity=self.multiplicity)
 
@@ -144,51 +183,62 @@ class ProteinDataProcessor:
 
         # randomly augment the coordinates if repeating batch
         if self.multiplicity > 1:
-            batch['coords'] = self.center_random_fn(
-                batch['coords'], 
-                batch['atom_pad_mask'], 
+            batch["coords"] = self.center_random_fn(
+                batch["coords"],
+                batch["atom_pad_mask"],
                 centering=True,
                 augmentation=True,
             )
 
         return batch
 
-    def preprocess_inference(self, batch, esm_model=None, esm_dict=None, af2_to_esm=None):
+    def preprocess_inference(
+        self, batch, esm_model=None, esm_dict=None, af2_to_esm=None
+    ):
         batch_size, max_ntokens = batch["mol_type"].shape[:2]
         max_natoms = batch["ref_element"].shape[1]
 
-        batch['coords'] = batch['coords'].squeeze(1) / self.scale
-        batch['ref_pos'] = batch['ref_pos'].float() / self.ref_scale
+        batch["coords"] = batch["coords"].squeeze(1) / self.scale
+        batch["ref_pos"] = batch["ref_pos"].float() / self.ref_scale
 
-        batch['atom_to_token_idx'] = torch.argmax(
-            batch['atom_to_token'], dim=-1)
+        batch["atom_to_token_idx"] = torch.argmax(batch["atom_to_token"], dim=-1)
 
-        mol_index = torch.arange(max_natoms).unsqueeze(0).expand(
-            batch_size, -1)
-        batch['mol_index'] = mol_index
+        mol_index = torch.arange(max_natoms).unsqueeze(0).expand(batch_size, -1)
+        batch["mol_index"] = mol_index
 
         batch = self.batch_to_device(batch, multiplicity=self.inference_multiplicity)
-
-        if esm_model is not None and batch.get('esm_s', None) is None:
+        if esm_model is not None and batch.get("esm_s", None) is None:
             print("Processing ESM features for inference...")
             self.process_esm(batch, esm_model, esm_dict, af2_to_esm, inference=True)
 
         if self.backend == "mlx":
             batch = self.batch_to_mlx(batch)
+        elif self.backend == "torch":
+            pass
+        elif self.backend == "jax":
+            batch = self.batch_to_jax(batch)
+        else:
+            raise NotImplementedError
 
         return batch
 
     def postprocess(self, out_dict, batch):
-        out_dict['coords'] = self.center_random_fn(
-            batch['coords'], 
-            batch['atom_pad_mask'], 
-            centering=True,
-            augmentation=False,
-        ) * self.scale
-        out_dict['denoised_coords'] = self.center_random_fn(
-            out_dict['denoised_coords'], 
-            batch['atom_pad_mask'], 
-            centering=True,
-            augmentation=False,
-        ) * self.scale
+        out_dict["coords"] = (
+            self.center_random_fn(
+                batch["coords"],
+                batch["atom_pad_mask"],
+                centering=True,
+                augmentation=False,
+            )
+            * self.scale
+        )
+        out_dict["denoised_coords"] = (
+            self.center_random_fn(
+                out_dict["denoised_coords"],
+                batch["atom_pad_mask"],
+                centering=True,
+                augmentation=False,
+            )
+            * self.scale
+        )
         return out_dict

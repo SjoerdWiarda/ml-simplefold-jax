@@ -3,34 +3,33 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
+import copy
 import os
 import shutil
-import copy
-import numpy as np
 from pathlib import Path
-from einops import repeat
-
-import torch
-import torch.nn.functional as F
-from torch.optim.optimizer import Optimizer
-import torch.distributed as dist
-from torch.distributed.fsdp import FullyShardedDataParallel
-from torch.optim.swa_utils import AveragedModel
-from torch.nn.utils import clip_grad_norm_
 
 import lightning
 import lightning.pytorch as pl
+import numpy as np
+import torch
+import torch.distributed as dist
+import torch.nn.functional as F
+from einops import repeat
 from fairscale.nn.data_parallel import FullyShardedDataParallel as FSDP
 from fairscale.nn.wrap import enable_wrap, wrap
+from torch.distributed.fsdp import FullyShardedDataParallel
+from torch.nn.utils import clip_grad_norm_
+from torch.optim.optimizer import Optimizer
+from torch.optim.swa_utils import AveragedModel
 
-from utils.esm_utils import _af2_to_esm, esm_registry
-from boltz_data_pipeline.types import Record, Structure
-from utils.boltz_utils import (
-    weighted_rigid_align, 
+from simplefold.boltz_data_pipeline.types import Record, Structure
+from simplefold.utils.boltz_utils import (
     center_random_augmentation,
-    process_structure, 
-    save_structure
+    process_structure,
+    save_structure,
+    weighted_rigid_align,
 )
+from simplefold.utils.esm_utils import _af2_to_esm, esm_registry
 
 
 def logit_normal_sample(n=1, m=0.0, s=1.0):
@@ -86,7 +85,7 @@ class SimpleFold(pl.LightningModule):
         clip_grad_norm_val=None,
         lddt_weight_schedule=False,
         plddt_training=False,
-        sample_dir='artifacts/',
+        sample_dir="artifacts/",
     ):
         super().__init__()
         self.save_hyperparameters(logger=False)
@@ -134,7 +133,9 @@ class SimpleFold(pl.LightningModule):
 
         self.plddt_module = plddt_module
         if self.plddt_training:
-            assert self.plddt_module is not None, "PLDDT module must be provided for PLDDT training"
+            assert (
+                self.plddt_module is not None
+            ), "PLDDT module must be provided for PLDDT training"
             self.model.eval()
 
     def register(self, name, tensor):
@@ -150,7 +151,7 @@ class SimpleFold(pl.LightningModule):
         return loss
 
     def smooth_lddt_loss(
-        self, 
+        self,
         pred_coords,
         true_coords,
         # is_nucleotide,
@@ -328,11 +329,10 @@ class SimpleFold(pl.LightningModule):
                 af2_to_esm=self.af2_to_esm,
             )
 
-            noise = torch.randn_like(batch['coords']).to(self.device)
+            noise = torch.randn_like(batch["coords"]).to(self.device)
 
             out_dict = self.sampler.sample(
-                self.model_ema.module.forward, self.path,
-                noise, batch
+                self.model_ema.module.forward, self.path, noise, batch
             )
             # out_dict = self.processor.postprocess(out_dict, batch)
 
@@ -344,13 +344,13 @@ class SimpleFold(pl.LightningModule):
             # )
             denoised_coords = center_random_augmentation(
                 out_dict["denoised_coords"],
-                batch['atom_pad_mask'],
+                batch["atom_pad_mask"],
                 augmentation=False,
                 centering=True,
             )
             true_coords = center_random_augmentation(
-                batch['coords'],
-                batch['atom_pad_mask'],
+                batch["coords"],
+                batch["atom_pad_mask"],
                 augmentation=False,
                 centering=True,
             )
@@ -359,8 +359,8 @@ class SimpleFold(pl.LightningModule):
 
             out_dict["true_coords_resolved_mask"] = batch["atom_resolved_mask"]
 
-            t = torch.ones(batch['coords'].shape[0], device=self.device)
-            out_feat = self.model(denoised_coords, t, batch) # use unscaled coords
+            t = torch.ones(batch["coords"].shape[0], device=self.device)
+            out_feat = self.model(denoised_coords, t, batch)  # use unscaled coords
 
         # Compute plddt loss
         plddt_out_dict = self.plddt_module(
@@ -387,12 +387,14 @@ class SimpleFold(pl.LightningModule):
         )
 
         # timestep resampling
-        t_size = batch['coords'].shape[0]
-        t = 0.98 * logit_normal_sample(n=t_size, m=0.8, s=1.7) + 0.02 * torch.rand(t_size)
+        t_size = batch["coords"].shape[0]
+        t = 0.98 * logit_normal_sample(n=t_size, m=0.8, s=1.7) + 0.02 * torch.rand(
+            t_size
+        )
         t = t.to(self.device)
         t = t * (1 - 2 * self.t_eps) + self.t_eps
 
-        noise = torch.randn_like(batch['coords']).to(self.device)
+        noise = torch.randn_like(batch["coords"]).to(self.device)
 
         _, y_t, v_t = self.path.interpolant(t, noise, batch["coords"])
 
@@ -403,7 +405,7 @@ class SimpleFold(pl.LightningModule):
 
         if self.use_rigid_align:
             with torch.no_grad(), torch.autocast("cuda", enabled=False):
-                v_t = out_dict['predict_velocity'].detach().float()
+                v_t = out_dict["predict_velocity"].detach().float()
                 denoised_coords = y_t + v_t * (1.0 - t[:, None, None])
                 coords = batch["coords"].detach().float()
                 coords_aligned = weighted_rigid_align(
@@ -417,7 +419,7 @@ class SimpleFold(pl.LightningModule):
         else:
             target = v_t
 
-        loss = F.mse_loss(out_dict['predict_velocity'], target, reduction='none')
+        loss = F.mse_loss(out_dict["predict_velocity"], target, reduction="none")
 
         loss_mask = resolved_atom_mask * align_weights
         loss = self.loss_masking(loss, loss_mask)
@@ -434,21 +436,22 @@ class SimpleFold(pl.LightningModule):
 
         if self.use_smooth_lddt_loss:
             # one-step Euler to get denoised coordinates
-            denoised_coords = y_t + \
-                out_dict['predict_velocity'] * (1.0 - t[:, None, None])
+            denoised_coords = y_t + out_dict["predict_velocity"] * (
+                1.0 - t[:, None, None]
+            )
 
             # rescale coordinates to angstroms
             # denoised_coords = center_of_mass_norm(denoised_coords, batch['atom_pad_mask'])
             # true_coords = center_of_mass_norm(batch['coords'], batch['atom_pad_mask'])
             denoised_coords = center_random_augmentation(
                 denoised_coords,
-                batch['atom_pad_mask'],
+                batch["atom_pad_mask"],
                 augmentation=False,
                 centering=True,
             )
             true_coords = center_random_augmentation(
-                batch['coords'],
-                batch['atom_pad_mask'],
+                batch["coords"],
+                batch["atom_pad_mask"],
                 augmentation=False,
                 centering=True,
             )
@@ -513,17 +516,21 @@ class SimpleFold(pl.LightningModule):
 
     @torch.no_grad()
     def predict_step(self, batch, batch_idx):
-        with torch.autocast(device_type='cuda', dtype=torch.float32):
+        with torch.autocast(device_type="cuda", dtype=torch.float32):
             batch = self.processor.preprocess_inference(
                 batch,
                 esm_model=self.esm_model,
                 esm_dict=self.esm_dict,
                 af2_to_esm=self.af2_to_esm,
             )
-            num_repeats = batch.get("num_repeats", torch.tensor(1, device=self.device)).item()
+            num_repeats = batch.get(
+                "num_repeats", torch.tensor(1, device=self.device)
+            ).item()
             multiplicity = batch["mol_type"].shape[0]
             num_iter = np.ceil(num_repeats / multiplicity).astype(int)
-            print(f"Generating {num_repeats} samples with num_iter: {num_iter}, multiplicity: {multiplicity}")
+            print(
+                f"Generating {num_repeats} samples with num_iter: {num_iter}, multiplicity: {multiplicity}"
+            )
 
             # num_repeats is the total number of samples to generate for one protein
             # multiplicity is the number of samples to generate at once
@@ -531,23 +538,24 @@ class SimpleFold(pl.LightningModule):
             curr_idx = 0
             for i in range(num_iter):
                 batch_in = copy.deepcopy(batch)
-                noise = torch.randn_like(batch_in['coords']).to(self.device)
+                noise = torch.randn_like(batch_in["coords"]).to(self.device)
 
                 out_dict = self.sampler.sample(
-                    self.model_ema.module.forward, self.path,
-                    noise, batch_in
+                    self.model_ema.module.forward, self.path, noise, batch_in
                 )
 
                 if self.plddt_module is not None:
                     denoised_coords = center_random_augmentation(
                         out_dict["denoised_coords"],
-                        batch['atom_pad_mask'],
+                        batch["atom_pad_mask"],
                         augmentation=False,
                         centering=True,
                     )
 
-                    t = torch.ones(batch['coords'].shape[0], device=self.device)
-                    out_feat = self.model(denoised_coords, t, batch) # use unscaled coords
+                    t = torch.ones(batch["coords"].shape[0], device=self.device)
+                    out_feat = self.model(
+                        denoised_coords, t, batch
+                    )  # use unscaled coords
 
                     plddt_out_dict = self.plddt_module(
                         out_feat["latent"],
@@ -559,10 +567,10 @@ class SimpleFold(pl.LightningModule):
 
                 out_dict = self.processor.postprocess(out_dict, batch_in)
 
-                record = Record(**batch_in['record'][0])
-                gt_coord = out_dict['coords']
-                sampled_coord = out_dict['denoised_coords']
-                pad_mask = batch_in['atom_pad_mask']
+                record = Record(**batch_in["record"][0])
+                gt_coord = out_dict["coords"]
+                sampled_coord = out_dict["denoised_coords"]
+                pad_mask = batch_in["atom_pad_mask"]
 
                 if num_repeats - curr_idx < multiplicity:
                     curr_num_copies = num_repeats - curr_idx
@@ -573,7 +581,9 @@ class SimpleFold(pl.LightningModule):
                 else:
                     curr_num_copies = multiplicity
 
-                data_dir = self.trainer.datamodule.predict_dataloader().dataset.target_dir
+                data_dir = (
+                    self.trainer.datamodule.predict_dataloader().dataset.target_dir
+                )
                 sample_dir = self.sample_dir
                 path = Path(data_dir) / "structures" / f"{record.id}.npz"
                 structure: Structure = Structure.load(path)
@@ -589,13 +599,17 @@ class SimpleFold(pl.LightningModule):
                         sampled_struct_dir = Path(sample_dir)
                         outname = f"{record.id}_sampled_{str(file_id)}"
                         save_structure(
-                            sampled_structure, sampled_struct_dir, outname, 
+                            sampled_structure,
+                            sampled_struct_dir,
+                            outname,
                             plddts=plddts[j] if plddts is not None else None,
                             output_format="mmcif",
                         )
                         # save pdb structure
                         save_structure(
-                            sampled_structure, sampled_struct_dir, outname, 
+                            sampled_structure,
+                            sampled_struct_dir,
+                            outname,
                             plddts=plddts[j] if plddts is not None else None,
                             output_format="pdb",
                         )
@@ -610,7 +624,7 @@ class SimpleFold(pl.LightningModule):
         return
 
     def on_predict_epoch_end(self):
-        dist.barrier() # wait for all processes to finish
+        dist.barrier()  # wait for all processes to finish
         return
 
     def reset_esm(self, esm_model: str):
@@ -764,9 +778,7 @@ class SimpleFold(pl.LightningModule):
         return super().on_load_checkpoint(checkpoint)
 
     def configure_optimizers(self):
-        optimizer = self.hparams.optimizer(
-            params=self.trainer.model.parameters()
-        )
+        optimizer = self.hparams.optimizer(params=self.trainer.model.parameters())
 
         if self.hparams.scheduler is not None:
             scheduler = self.hparams.scheduler(optimizer=optimizer)

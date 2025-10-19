@@ -3,8 +3,8 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
-# Started from https://github.com/jwohlwend/boltz, 
-# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro. 
+# Started from https://github.com/jwohlwend/boltz,
+# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro.
 
 import itertools
 import pickle
@@ -14,10 +14,9 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from boltz_data_pipeline import const
-from boltz_data_pipeline.feature.pad import pad_dim
-from utils.boltz_utils import lddt_dist
-from utils.boltz_utils import weighted_minimum_rmsd_single
+from simplefold.boltz_data_pipeline import const
+from simplefold.boltz_data_pipeline.feature.pad import pad_dim
+from simplefold.utils.boltz_utils import lddt_dist, weighted_minimum_rmsd_single
 
 
 def convert_atom_name(name: str) -> tuple[int, int, int, int]:

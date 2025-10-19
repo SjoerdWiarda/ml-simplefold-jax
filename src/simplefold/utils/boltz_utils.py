@@ -3,28 +3,27 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
-# Started from https://github.com/jwohlwend/boltz, 
-# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro. 
+# Started from https://github.com/jwohlwend/boltz,
+# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro.
 
-# Started from code from https://github.com/lucidrains/alphafold3-pytorch, 
+# Started from code from https://github.com/lucidrains/alphafold3-pytorch,
 # licensed under MIT License, Copyright (c) 2024 Phil Wang
 
-import numpy as np
+from dataclasses import replace
 from functools import partial
 from typing import Optional
-from einops import einsum
-from dataclasses import replace
 
+import numpy as np
 import torch
-from torch.nn import Linear
 import torch.nn.functional as F
+from einops import einsum
+from torch.nn import Linear
 from torch.types import Device
 
-from boltz_data_pipeline import const
-from boltz_data_pipeline.types import Interface, Structure, ChainInfo
-from boltz_data_pipeline.write.mmcif import to_mmcif
-from boltz_data_pipeline.write.pdb import to_pdb
-
+from simplefold.boltz_data_pipeline import const
+from simplefold.boltz_data_pipeline.types import ChainInfo, Interface, Structure
+from simplefold.boltz_data_pipeline.write.mmcif import to_mmcif
+from simplefold.boltz_data_pipeline.write.pdb import to_pdb
 
 LinearNoBias = partial(Linear, bias=False)
 
@@ -400,10 +399,12 @@ def process_structure(structure, coord, pad_mask, record, backend="torch"):
     if backend == "torch":
         coord_unpad = coord[pad_mask.bool()]
         coord_unpad = coord_unpad.cpu().numpy()
-    elif backend == "mlx":
+    elif backend == "mlx" or backend == "jax":
         pad_mask = np.array(pad_mask, dtype=np.bool_)
         coord = np.array(coord, dtype=np.float32)
         coord_unpad = coord[pad_mask]
+    else:
+        raise NotImplementedError
 
     # New atom table
     atoms = structure.atoms

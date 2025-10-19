@@ -1,4 +1,52 @@
 
+<h1 align="center"><strong>SimpleFold JAX + NNX Flax implementation</strong></h1>
+
+<p align="center">
+  <img src="assets/jax.webp" alt="Example 1" width="200"/>
+  <img src="assets/flax.webp" alt="Example 2" width="150"/>
+</p>
+
+
+This is a fork of https://github.com/apple/ml-simplefold that implements SimpleFold in [JAX](https://docs.jax.dev/en/latest/index.html) and [NNX Flax](https://flax.readthedocs.io/en/stable/). 
+The code contains several **regression tests** to confirm the equivalent behavior between the `PyTorch` and `JAX/Flax` version. 
+There are several tests that compare parts of the code/modules (such as the [`ESM2`](src/simplefold/model/jax/esm_network.py) and [`FoldingDiT`](src/simplefold/model/jax/architecture.py) model) and assert equivalent output between the [`PyTorch`](src/simplefold/model/torch) and [`JAX`](src/simplefold/model/jax) implementation. 
+As the models get larger, minor precision errors occur, due to propagating errors from floating-point rounding errors.
+
+
+## Currently supported:
+
+- Re-using all the weights/models (including all different sizes/variants) of the original repository and converting them to `JAX` weights and models.
+- [Regression tests](test/simplefold/utils/test_jax.py) verifying that the `ESM2` and `FoldingDiT` modules between `PyTorch` and `JAX` have equivalent results.
+- Updated the notebook [`sample.ipynb`](sample.ipynb) to support the `JAX` backend inference (by default on CPU due to my hardware, but GPU should work).
+
+#### TODO:
+- Convert the pLLDT module to JAX.
+- Enable training in JAX (difficult to verify due to limited hardware).
+- Improve GPU device support (unable to test this due to insufficient VRAM).
+- General cleanup: 
+  - Many new type annotations were introduced, but they do not always apply if the `PyTorch` or `MLX` backend is used. 
+  - Some tests are not complete and require some documentation. 
+  - Enabling JAX in several scripts such as [`src/simplefold/inference.py`](src/simplefold/inference.py). Currently only the notebook [`sample.ipynb`](sample.ipynb) is fully supported.
+
+## Installation
+
+Note: Unlike the original repository, this repository uses `uv` (https://docs.astral.sh/uv/). You can install uv with:
+```
+pip install uv
+```
+To install `simplefold` package from github repository, run
+```
+git clone https://github.com/SjoerdWiarda/ml-simplefold-jax
+cd ml-simplefold
+uv sync
+```
+If you want to use MLX backend on Apple silicon: 
+```
+uv pip install mlx==0.28.0
+```
+
+Continuation of the original authors README.md:
+
 <h1 align="center"><strong>SimpleFold: Folding Proteins is Simpler than You Think</strong></h1>
 
 

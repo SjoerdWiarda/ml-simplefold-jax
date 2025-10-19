@@ -3,29 +3,22 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
-import os
-import hydra
-import torch
 import functools
-from omegaconf import OmegaConf
+import os
 
+import hydra
 import lightning.pytorch as pl
+import torch
 from lightning.pytorch import LightningDataModule, LightningModule
 from lightning.pytorch.strategies import FSDPStrategy
+from omegaconf import OmegaConf
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
-from model.torch.blocks import DiTBlock
-from utils.utils import (
-    extras,
-    create_folders,
-    task_wrapper,
-)
-from utils.instantiators import (
-    instantiate_callbacks,
-    instantiate_loggers,
-)
-from utils.logging_utils import log_hyperparameters
-from utils.pylogger import RankedLogger
+from simplefold.model.torch.blocks import DiTBlock
+from simplefold.utils.instantiators import instantiate_callbacks, instantiate_loggers
+from simplefold.utils.logging_utils import log_hyperparameters
+from simplefold.utils.pylogger import RankedLogger
+from simplefold.utils.utils import create_folders, extras, task_wrapper
 
 log = RankedLogger(__name__, rank_zero_only=True)
 torch.set_float32_matmul_precision("medium")
@@ -78,14 +71,14 @@ def train(cfg):
         use_orig_params=True,
         state_dict_type="sharded",
         limit_all_gathers=True,
-        cpu_offload=False
+        cpu_offload=False,
     )
     trainer = hydra.utils.instantiate(
-        cfg.trainer, 
+        cfg.trainer,
         strategy=strategy,
-        callbacks=callbacks, 
-        logger=loggers, 
-        plugins=None
+        callbacks=callbacks,
+        logger=loggers,
+        plugins=None,
     )
 
     object_dict = {
@@ -109,7 +102,9 @@ def train(cfg):
     )
 
 
-@hydra.main(version_base="1.3", config_path="../../configs", config_name="base_train.yaml")
+@hydra.main(
+    version_base="1.3", config_path="../../configs", config_name="base_train.yaml"
+)
 def submit_run(cfg):
     OmegaConf.resolve(cfg)
     extras(cfg)
