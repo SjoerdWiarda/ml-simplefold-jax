@@ -14,7 +14,9 @@ from simplefold.model.jax.esm_rotary_embedding import RotaryEmbedding
 
 
 def utils_softmax(x, dim: int, onnx_trace: bool = False):
-    return nnx.softmax(x.astype(jax.numpy.float64), axis=dim)
+    return nnx.softmax(
+        x.astype(jax.numpy.float32), axis=dim
+    )  # We keep it 32 bit to have the consistency with the torch implementation.
 
 
 def masked_fill_jax(x, mask, value):
@@ -184,7 +186,6 @@ class MultiheadAttention(nnx.Module):
             assert key_padding_mask.shape[1] == src_len
 
         if self.rot_emb:
-
             q, k = self.rot_emb(q, k)
 
         attn_weights = jax.numpy.matmul(q, jax.numpy.swapaxes(k, axis1=1, axis2=2))

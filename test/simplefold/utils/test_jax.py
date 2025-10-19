@@ -162,6 +162,7 @@ from simplefold.utils.esm_utils import _af2_to_esm, esm_registry
 def test_transformer_regression() -> None:
     numpy.random.seed(42)
     torch.manual_seed(42)
+    jax.config.update("jax_enable_x64", True)
 
     attention_heads = 2
     head_dim = 31
@@ -231,6 +232,7 @@ def test_folding_dit_regression():
     hidden_size = 12
     depth = 2
     esm_model = "esm2_8M"  # "esm2_3B"
+    torch.manual_seed(42)
 
     jax.config.update("jax_enable_x64", True)
 
@@ -415,7 +417,7 @@ def test_folding_dit_regression():
     for key in torch_output.keys():
         assert numpy.isclose(
             torch_output[key].detach().numpy(),
-            jax_output[key],  # , atol=1e-4  # , rtol=1e-3
+            jax_output[key],
         ).all()
 
 
@@ -448,7 +450,11 @@ def test_folding_dit_regression():
 #         raise NotImplementedError
 
 
-def test_esm_regression() -> None:
+def test_esm_regression_wrapper() -> None:
+    """Tests that the"""
+    numpy.random.seed(42)
+    torch.manual_seed(42)
+    jax.config.update("jax_enable_x64", True)
 
     def get_esm_prediction(backend, esmaa):
         # following are example amino acid sequences:
@@ -499,7 +505,9 @@ def test_esm_regression() -> None:
     for key in torch_batch.keys():
         if isinstance(torch_batch[key], torch.Tensor):
             assert (
-                jax.numpy.isclose(jax.numpy.asarray(torch_batch[key]), jax_batch[key])
+                jax.numpy.isclose(
+                    jax.numpy.asarray(torch_batch[key].detach().numpy()), jax_batch[key]
+                )
             ).all()
             # TODO: check devices are the same.
         else:
