@@ -4,6 +4,7 @@
 #
 
 import math
+
 import torch
 from torch import nn
 
@@ -32,7 +33,9 @@ class AbsolutePositionEncoding(nn.Module):
         https://github.com/facebookresearch/DiT/blob/main/models.py#L303
         """
         embed_dim = self.hidden_dim // (self.in_dim * 2)
-        omega = 2 ** torch.linspace(0, math.log(224, 2) - 1, embed_dim).to(pos.device)
+        omega = 2 ** torch.linspace(
+            0, math.log(224, 2) - 1, embed_dim, dtype=pos.dtype
+        ).to(pos.device)
         omega *= torch.pi
 
         if len(pos.shape) == 1:

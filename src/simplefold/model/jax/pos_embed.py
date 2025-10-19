@@ -142,9 +142,7 @@ def compute_axial_cis(
         freq = 1.0 / (
             theta
             ** (
-                jax.numpy.arange(0, dim, interval)[: (dim // interval)].astype(
-                    jax.numpy.float32
-                )
+                jax.numpy.arange(0, dim, interval)[: (dim // interval)].astype(ts.dtype)
                 / dim
             )
         )  # .to(ts.device)
@@ -161,14 +159,10 @@ def apply_rotary_emb(
     xq: jax.Array, xk: jax.Array, freqs_cis: jax.Array
 ) -> tuple[jax.Array, jax.Array]:
 
-    xq_real, xq_imag = jax.numpy.split(
-        xq.astype(jax.numpy.float32).reshape(*xq.shape[:-1], -1, 2), 2, axis=-1
-    )
+    xq_real, xq_imag = jax.numpy.split(xq.reshape(*xq.shape[:-1], -1, 2), 2, axis=-1)
     xq_ = xq_real + 1j * xq_imag
 
-    xk_real, xk_imag = jax.numpy.split(
-        xk.astype(jax.numpy.float32).reshape(*xk.shape[:-1], -1, 2), 2, axis=-1
-    )
+    xk_real, xk_imag = jax.numpy.split(xk.reshape(*xk.shape[:-1], -1, 2), 2, axis=-1)
     xk_ = xk_real + 1j * xk_imag
 
     modulated_xq = xq_.reshape(xq_.shape[:-1]) * freqs_cis

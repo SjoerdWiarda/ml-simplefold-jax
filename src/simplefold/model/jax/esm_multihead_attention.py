@@ -14,7 +14,7 @@ from simplefold.model.jax.esm_rotary_embedding import RotaryEmbedding
 
 
 def utils_softmax(x, dim: int, onnx_trace: bool = False):
-    return nnx.softmax(x.astype(jax.numpy.float32), axis=dim)
+    return nnx.softmax(x.astype(jax.numpy.float64), axis=dim)
 
 
 def masked_fill_jax(x, mask, value):

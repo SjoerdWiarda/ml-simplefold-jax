@@ -77,7 +77,9 @@ class FoldingDiT(nnx.Module):
         atom_feat_dim = pos_embed_channels + aminoacid_pos_embed_channels + 427
         self.atom_feat_proj = nnx.Sequential(
             nnx.Linear(atom_feat_dim, hidden_size, rngs=rngs),
-            nnx.LayerNorm(hidden_size, rngs=rngs),
+            nnx.LayerNorm(
+                hidden_size, rngs=rngs, epsilon=1e-5
+            ),  # Adjust epsilon for constistency with torch
             nnx.silu,
         )
         self.atom_pos_proj = nnx.Linear(
@@ -87,7 +89,9 @@ class FoldingDiT(nnx.Module):
         if self.use_length_condition:
             self.length_embedder = nnx.Sequential(
                 nnx.Linear(1, hidden_size, use_bias=False, rngs=rngs),
-                nnx.LayerNorm(hidden_size, rngs=rngs),
+                nnx.LayerNorm(
+                    hidden_size, rngs=rngs, epsilon=1e-5
+                ),  # Adjust epsilon for constistency with torch
             )
 
         self.atom_in_proj = nnx.Linear(
@@ -105,25 +109,35 @@ class FoldingDiT(nnx.Module):
 
         self.context2atom_proj = nnx.Sequential(
             nnx.Linear(hidden_size, self.atom_hidden_size_enc, rngs=rngs),
-            nnx.LayerNorm(self.atom_hidden_size_enc, rngs=rngs),
+            nnx.LayerNorm(
+                self.atom_hidden_size_enc, rngs=rngs, epsilon=1e-5
+            ),  # Adjust epsilon for constistency with torch
         )
         self.atom2latent_proj = nnx.Sequential(
             nnx.Linear(self.atom_hidden_size_enc, hidden_size, rngs=rngs),
-            nnx.LayerNorm(hidden_size, rngs=rngs),
+            nnx.LayerNorm(
+                hidden_size, rngs=rngs, epsilon=1e-5
+            ),  # Adjust epsilon for constistency with torch
         )
         self.atom_enc_cond_proj = nnx.Sequential(
             nnx.Linear(hidden_size, self.atom_hidden_size_enc, rngs=rngs),
-            nnx.LayerNorm(self.atom_hidden_size_enc, rngs=rngs),
+            nnx.LayerNorm(
+                self.atom_hidden_size_enc, rngs=rngs, epsilon=1e-5
+            ),  # Adjust epsilon for constistency with torch
         )
         self.atom_dec_cond_proj = nnx.Sequential(
             nnx.Linear(hidden_size, self.atom_hidden_size_dec, rngs=rngs),
-            nnx.LayerNorm(self.atom_hidden_size_dec, rngs=rngs),
+            nnx.LayerNorm(
+                self.atom_hidden_size_dec, rngs=rngs, epsilon=1e-5
+            ),  # Adjust epsilon for constistency with torch
         )
 
         self.latent2atom_proj = nnx.Sequential(
             nnx.Linear(hidden_size, hidden_size, rngs=rngs),
             nnx.silu,
-            nnx.LayerNorm(hidden_size, rngs=rngs),
+            nnx.LayerNorm(
+                hidden_size, rngs=rngs, epsilon=1e-5
+            ),  # Adjust epsilon for constistency with torch
             nnx.Linear(hidden_size, self.atom_hidden_size_dec, rngs=rngs),
         )
 
@@ -194,7 +208,7 @@ class FoldingDiT(nnx.Module):
     ) -> dict[str, jax.Array]:
         B, N, _ = feats["ref_pos"].shape
         M = feats["mol_type"].shape[1]
-        atom_to_token = feats["atom_to_token"].astype(jax.numpy.float32)  # [B, N, M]
+        atom_to_token = feats["atom_to_token"].astype(t.dtype)  # [B, N, M]
         atom_to_token_idx = feats["atom_to_token_idx"]
         ref_space_uid = feats["ref_space_uid"]
 
@@ -216,25 +230,21 @@ class FoldingDiT(nnx.Module):
         c_emb = self.time_embedder(t)  # (B, D)
         if self.use_length_condition:
             length = jax.numpy.expand_dims(feats["max_num_tokens"], axis=-1).astype(
-                jax.numpy.float32
+                t.dtype
             )
             c_emb = c_emb + self.length_embedder(jax.numpy.log(length))
 
         # create atom features
         mol_type = feats["mol_type"]
-        mol_type = nnx.one_hot(
-            mol_type, num_classes=4, dtype=jax.numpy.float32
-        )  # [B, M, 4]
-        res_type = feats["res_type"].astype(jax.numpy.float32)  # [B, M, 33]
-        pocket_feature = feats["pocket_feature"].astype(jax.numpy.float32)  # [B, M, 4]
+        mol_type = nnx.one_hot(mol_type, num_classes=4, dtype=t.dtype)  # [B, M, 4]
+        res_type = feats["res_type"].astype(t.dtype)  # [B, M, 33]
+        pocket_feature = feats["pocket_feature"].astype(t.dtype)  # [B, M, 4]
         res_feat = jax.numpy.concatenate(
             [mol_type, res_type, pocket_feature], axis=-1
         )  # [B, M, 41]
         atom_feat_from_res = jax.numpy.matmul(atom_to_token, res_feat)  # [B, N, 41]
         atom_res_pos = self.aminoacid_pos_embedder(
-            pos=jax.numpy.expand_dims(atom_to_token_idx, axis=-1).astype(
-                jax.numpy.float32
-            )
+            pos=jax.numpy.expand_dims(atom_to_token_idx, axis=-1).astype(t.dtype)
         )
         ref_pos_emb = self.pos_embedder(pos=feats["ref_pos"])
         atom_feat = jax.numpy.concatenate(
@@ -261,7 +271,7 @@ class FoldingDiT(nnx.Module):
         atom_pe_pos = jax.numpy.concatenate(
             [
                 jax.numpy.expand_dims(ref_space_uid, axis=-1).astype(
-                    jax.numpy.float32
+                    t.dtype
                 ),  # (B, N, 1)
                 feats["ref_pos"],  # (B, N, 3)
             ],
@@ -270,16 +280,16 @@ class FoldingDiT(nnx.Module):
         token_pe_pos = jax.numpy.concatenate(
             [
                 jax.numpy.expand_dims(feats["residue_index"], axis=-1).astype(
-                    jax.numpy.float32
+                    t.dtype
                 ),  # (B, M, 1)
                 jax.numpy.expand_dims(feats["entity_id"], axis=-1).astype(
-                    jax.numpy.float32
+                    t.dtype
                 ),  # (B, M, 1)
                 jax.numpy.expand_dims(feats["asym_id"], axis=-1).astype(
-                    jax.numpy.float32
+                    t.dtype
                 ),  # (B, M, 1)
                 jax.numpy.expand_dims(feats["sym_id"], axis=-1).astype(
-                    jax.numpy.float32
+                    t.dtype
                 ),  # (B, M, 1)
             ],
             axis=-1,

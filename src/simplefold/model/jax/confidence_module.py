@@ -48,7 +48,9 @@ class ConfidenceModule(nnx.Module):
         self.transformer_blocks = transformer_blocks
         self.to_plddt_logits = nnx.Sequential(
             nnx.Linear(hidden_size, hidden_size, rngs=rngs),
-            nnx.LayerNorm(hidden_size, rngs=rngs),
+            nnx.LayerNorm(
+                hidden_size, rngs=rngs, epsilon=1e-5
+            ),  # Adjust epsilon for constistency with torch
             nnx.silu,
             nnx.Linear(hidden_size, num_plddt_bins, rngs=rngs),
         )
@@ -61,16 +63,16 @@ class ConfidenceModule(nnx.Module):
         token_pe_pos = jax.numpy.concatenate(
             [
                 jax.numpy.expand_dims(feats["residue_index"], axis=-1).astype(
-                    jax.numpy.float32
+                    latent.dtype
                 ),  # (B, M, 1)
                 jax.numpy.expand_dims(feats["entity_id"], axis=-1).astype(
-                    jax.numpy.float32
+                    latent.dtype
                 ),  # (B, M, 1)
                 jax.numpy.expand_dims(feats["asym_id"], axis=-1).astype(
-                    jax.numpy.float32
+                    latent.dtype
                 ),  # (B, M, 1)
                 jax.numpy.expand_dims(feats["sym_id"], axis=-1).astype(
-                    jax.numpy.float32
+                    latent.dtype
                 ),  # (B, M, 1)
             ],
             axis=-1,

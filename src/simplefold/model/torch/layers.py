@@ -180,7 +180,7 @@ class TimestepEmbedder(nn.Module):
         half = dim // 2
         freqs = torch.exp(
             -math.log(max_period)
-            * torch.arange(start=0, end=half, dtype=torch.float32)
+            * torch.arange(start=0, end=half, dtype=t.dtype)
             / half
         ).to(device=t.device, dtype=t.dtype)
         args = t[:, None].float() * freqs[None]

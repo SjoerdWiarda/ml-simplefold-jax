@@ -228,10 +228,10 @@ class TimestepEmbedder(nnx.Module):
         # TODO: fix device
         freqs = jax.numpy.exp(
             -math.log(max_period)
-            * jax.numpy.arange(start=0, stop=half, dtype=jax.numpy.float32)
+            * jax.numpy.arange(start=0, stop=half, dtype=jax.numpy.float64)
             / half
         )  # .to(device=t.device)
-        args = t[:, None].astype(jax.numpy.float32) * freqs[None]
+        args = t[:, None].astype(jax.numpy.float64) * freqs[None]
         embedding = jax.numpy.concatenate(
             [jax.numpy.cos(args), jax.numpy.sin(args)], axis=-1
         )
@@ -262,7 +262,9 @@ class ConditionEmbedder(nnx.Module):
         super().__init__()
         self.proj = nnx.Sequential(
             nnx.Linear(input_dim, hidden_size, rngs=rngs),
-            nnx.LayerNorm(hidden_size, rngs=rngs),
+            nnx.LayerNorm(
+                hidden_size, rngs=rngs, epsilon=1e-5
+            ),  # Adjust epsilon for constistency with torch
             nnx.silu,
         )
         self.dropout_prob = dropout_prob

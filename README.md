@@ -20,7 +20,7 @@ As the models get larger, minor precision errors occur, due to propagating error
 - Updated the notebook [`sample.ipynb`](sample.ipynb) to support the `JAX` backend inference (by default on CPU due to my hardware, but GPU should work).
 
 #### TODO:
-- Convert the pLLDT module to JAX.
+- Convert the pLDDT module to JAX.
 - Enable training in JAX (difficult to verify due to limited hardware).
 - Improve GPU device support (unable to test this due to insufficient VRAM).
 - General cleanup: 
@@ -34,7 +34,7 @@ Note: Unlike the original repository, this repository uses `uv` (https://docs.as
 ```
 pip install uv
 ```
-To install `simplefold` package from github repository, run
+To install the `simplefold` package from the github repository, run
 ```
 git clone https://github.com/SjoerdWiarda/ml-simplefold-jax
 cd ml-simplefold
