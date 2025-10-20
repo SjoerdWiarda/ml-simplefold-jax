@@ -484,6 +484,14 @@ class InferenceWrapper:
                     out_feat["latent"],
                     batch,
                 )
+            elif self.backend == "jax":
+                t = jax.numpy.ones(batch["coords"].shape[0])
+                # use unscaled coords to extract latent for pLDDT prediction
+                out_feat = plddt_latent_module(out_dict["denoised_coords"], t, batch)
+                plddt_out_dict = plddt_out_module(
+                    out_feat["latent"],
+                    batch,
+                )
             else:
                 raise NotImplementedError
 
