@@ -44,7 +44,7 @@ class RotaryEmbedding(nnx.Module):
                 1.0
                 / (
                     10000
-                    ** (jax.numpy.arange(0, dim, 2).astype(jax.numpy.float64) / dim)
+                    ** (jax.numpy.arange(0, dim, 2).astype(jax.numpy.float32) / dim)
                 )
             )
         )

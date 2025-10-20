@@ -197,6 +197,33 @@ class ModelWrapper:
                 if k is not None
             }
             plddt_out_module.update(tree_unflatten(list(mlx_state_dict.items())))
+
+        elif self.backend == "jax":
+            # replace torch implementations with jax
+            with open(plddt_module_path, "r") as f:
+                yaml_str = f.read()
+            yaml_str = yaml_str.replace("torch", "jax")
+
+            plddt_config = omegaconf.OmegaConf.create(yaml_str)
+            plddt_out_module = hydra.utils.instantiate(plddt_config)
+
+            graphdef_plddt_module, state_plddt_module = nnx.split(plddt_out_module)
+            second_unflattend_dict = unflatten_state_dict(plddt_checkpoint)
+
+            updated_dict = replace_by_torch_dict(
+                state_plddt_module, second_unflattend_dict
+            )
+            plddt_out_module = nnx.merge(graphdef_plddt_module, updated_dict)
+
+            del (
+                plddt_checkpoint,
+                plddt_config,
+                state_plddt_module,
+                graphdef_plddt_module,
+                second_unflattend_dict,
+                updated_dict,
+                plddt_module_path,
+            )
         else:
             raise NotImplementedError
 
@@ -234,6 +261,20 @@ class ModelWrapper:
                 if k is not None
             }
             plddt_latent_module.update(tree_unflatten(list(mlx_state_dict.items())))
+        elif self.backend == "jax":
+            # replace torch implementations with jax
+            with open(plddt_latent_config_path, "r") as f:
+                yaml_str = f.read()
+            plddt_yaml_str = yaml_str.replace("torch", "jax")
+
+            plddt_latent_config = omegaconf.OmegaConf.create(plddt_yaml_str)
+            plddt_latent_module = hydra.utils.instantiate(plddt_latent_config)
+
+            graphdef, state = nnx.split(plddt_latent_module)
+            second_unflattend_dict = unflatten_state_dict(plddt_latent_checkpoint)
+
+            updated_dict = replace_by_torch_dict(state, second_unflattend_dict)
+            plddt_latent_module = nnx.merge(graphdef, updated_dict)
         else:
             raise NotImplementedError
 
@@ -256,6 +297,7 @@ class InferenceWrapper:
         tau,
         device,
         backend,
+        dtype="single",
     ):
         self.num_steps = num_steps
         self.nsample_per_protein = nsample_per_protein
@@ -287,18 +329,23 @@ class InferenceWrapper:
         self.cache = cache
         self.prediction_dir = prediction_dir
 
-        self.initialize_esm_model()
+        self.initialize_esm_model(dtype)
         self.initialize_others()
 
-    def initialize_esm_model(self):
+    def initialize_esm_model(self, dtype):
         # load ESM2 model
         esm_model, esm_dict = esm_registry["esm2_3B"]()  # should be 3B
+        if dtype == "double":
+            esm_model = esm_model.double()
+        elif dtype != "single":
+            raise NotImplementedError
+
         af2_to_esm = _af2_to_esm(esm_dict)
 
         if self.backend == "torch":
             esm_model = esm_model.to(self.device)
             af2_to_esm = af2_to_esm.to(self.device)
-            self.esm_model = esm_model.eval().double()
+            self.esm_model = esm_model.eval()
         elif self.backend == "mlx":
             esm_model_mlx = ESM2MLX(num_layers=36, embed_dim=2560, attention_heads=40)
             esm_state_dict_torch = esm_model.cpu().state_dict()

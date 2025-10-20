@@ -87,7 +87,11 @@ class TransformerLayer(nnx.Module):
         use_esm1b_layer_norm: bool,
         rngs: nnx.Rngs,
     ):
-        BertLayerNorm = ESM1bLayerNorm if use_esm1b_layer_norm else ESM1LayerNorm
+        BertLayerNorm = lambda embed_dim, rngs: (
+            ESM1bLayerNorm(embed_dim, rngs=rngs, epsilon=1e-5)
+            if use_esm1b_layer_norm
+            else ESM1LayerNorm
+        )
 
         self.self_attn = MultiheadAttention(
             self.embed_dim,

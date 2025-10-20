@@ -2,8 +2,8 @@
 <h1 align="center"><strong>SimpleFold JAX + NNX Flax implementation</strong></h1>
 
 <p align="center">
-  <img src="assets/jax.webp" alt="Example 1" width="200"/>
-  <img src="assets/flax.webp" alt="Example 2" width="150"/>
+  <img src="assets/jax.webp" width="200"/>
+  <img src="assets/flax.webp" width="150"/>
 </p>
 
 
@@ -15,12 +15,11 @@ As the models get larger, minor precision errors occur, due to propagating error
 
 ## Currently supported:
 
-- Re-using all the weights/models (including all different sizes/variants) of the original repository and converting them to `JAX` weights and models.
+- Re-using all the weights/models (including all different sizes/variants and confidence/plddt modules) of the original repository and converting them to `JAX` weights and models.
 - [Regression tests](test/simplefold/utils/test_jax.py) verifying that the `ESM2` and `FoldingDiT` modules between `PyTorch` and `JAX` have equivalent results.
 - Updated the notebook [`sample.ipynb`](sample.ipynb) to support the `JAX` backend inference (by default on CPU due to my hardware, but GPU should work).
 
 #### TODO:
-- Convert the pLDDT module to JAX.
 - Enable training in JAX (difficult to verify due to limited hardware).
 - Improve GPU device support (unable to test this due to insufficient VRAM).
 - General cleanup: 

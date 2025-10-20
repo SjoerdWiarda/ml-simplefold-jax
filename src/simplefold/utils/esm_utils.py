@@ -208,6 +208,9 @@ def compute_language_model_representations(
         pass
     elif backend == "jax":
         esmaa = jax.numpy.asarray(esmaa)
+    else:
+        raise NotImplementedError
+
     res = esm(
         esmaa,
         repr_layers=range(esm.num_layers + 1),
