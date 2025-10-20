@@ -16,7 +16,7 @@ As the models get larger, minor precision errors occur, due to propagating error
 ## Currently supported:
 
 - Re-using all the weights/models (including all different sizes/variants and confidence/plddt modules) of the original repository and converting them to `JAX` weights and models.
-- [Regression tests](test/simplefold/utils/test_jax.py) verifying that the `ESM2` and `FoldingDiT` modules between `PyTorch` and `JAX` have equivalent results.
+- [Regression tests](test/simplefold/) verifying that the `ESM2` and `FoldingDiT` modules between `PyTorch` and `JAX` have equivalent results.
 - Updated the notebook [`sample.ipynb`](sample.ipynb) to support the `JAX` backend inference (by default on CPU due to my hardware, but GPU should work).
 
 #### TODO:
