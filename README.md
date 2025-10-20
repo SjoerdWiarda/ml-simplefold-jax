@@ -15,9 +15,12 @@ As the models get larger, minor precision errors occur, due to propagating error
 
 ## Currently supported:
 
-- Re-using all the weights/models (including all different sizes/variants and confidence/plddt modules) of the original repository and converting them to `JAX` weights and models.
+- Full implementation of the [ESM](https://github.com/facebookresearch/esm.git) model in [`ESM2`](src/simplefold/model/jax/esm_network.py) using JAX/NNX Flax.
+- Full implementation of the [SimpleFold](https://github.com/apple/ml-simplefold) model in [`FoldingDiT`](src/simplefold/model/jax/architecture.py) using JAX/NNX Flax.
+- Re-using all the weights/models (including all different sizes/variants and confidence/plddt modules) of the original repository (`PyTorch` weights) and converting them to `JAX` weights and models to be used for inference.
 - [Regression tests](test/simplefold/) verifying that the `ESM2` and `FoldingDiT` modules between `PyTorch` and `JAX` have equivalent results.
 - Updated the notebook [`sample.ipynb`](sample.ipynb) to support the `JAX` backend inference (by default on CPU due to my hardware, but GPU should work).
+- Enabled the [`inference.py`](src/simplefold/inference.py) script with the `JAX` backend. Instructions on how to use this script are given further below in the README. By default the `JAX` backend is used but the backend can be switched by using the `--backend` argument.
 
 #### TODO:
 - Enable training in JAX (difficult to verify due to limited hardware).
@@ -25,7 +28,7 @@ As the models get larger, minor precision errors occur, due to propagating error
 - General cleanup: 
   - Many new type annotations were introduced, but they do not always apply if the `PyTorch` or `MLX` backend is used. 
   - Some tests are not complete and require some documentation. 
-  - Enabling JAX in several scripts such as [`src/simplefold/inference.py`](src/simplefold/inference.py). Currently only the notebook [`sample.ipynb`](sample.ipynb) is fully supported.
+
 
 ## Installation
 

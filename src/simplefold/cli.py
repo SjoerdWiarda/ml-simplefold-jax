@@ -67,7 +67,7 @@ def main():
     parser.add_argument(
         "--backend",
         type=str,
-        default="torch",
+        default="jax",
         choices=["torch", "mlx", "jax"],
         help="Backend to run inference either torch or mlx",
     )

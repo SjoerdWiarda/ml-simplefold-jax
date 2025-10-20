@@ -66,22 +66,6 @@ def unflatten_state_dict(flat_dict):
     return nested
 
 
-def convert_to_jax_dict(torch_dict: dict) -> dict[str, Any]:
-
-    new_dict = {}
-
-    def tensor_to_jax_array(x: Any) -> Any:
-        if isinstance(x, torch.Tensor):
-            return jax.numpy.asarray(x.numpy())
-        else:
-            return x
-
-    for key, value in torch_dict.items():
-        new_dict[key] = tensor_to_jax_array(value)
-
-    return new_dict
-
-
 def replace_by_torch_dict(
     state,
     pure_dict: dict[str, Any],

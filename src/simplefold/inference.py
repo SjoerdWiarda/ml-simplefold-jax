@@ -43,9 +43,15 @@ except:
 
 try:
     import jax
+    from flax import nnx
 
+    from simplefold.model.jax.esm_network import ESM2 as ESM2JAX
+    from simplefold.model.jax.sampler import EMSampler as EMSamplerJAX
+    from simplefold.utils.jax_utils import replace_by_torch_dict, unflatten_state_dict
+
+    JAX_AVAILABLE = True
 except:
-    MLX_AVAILABLE = False
+    JAX_AVAILABLE = False
     print("JAX not installed, skip importing JAX related packages.")
 
 
@@ -104,10 +110,8 @@ def initialize_folding_model(args):
             if k is not None
         }
         model.update(tree_unflatten(list(mlx_state_dict.items())))
-    else:
-
-        raise NotImplementedError
-
+    elif args.backend == "jax":
+        device = jax.local_devices()[0]
         # replace torch implementations with jax
         with open(cfg_path, "r") as f:
             yaml_str = f.read()
@@ -122,6 +126,10 @@ def initialize_folding_model(args):
 
         updated_dict = replace_by_torch_dict(state, second_unflattend_dict)
         model = nnx.merge(graphdef, updated_dict)
+
+    else:
+        raise NotImplementedError
+
     print(f"Folding model {simplefold_model} loaded.")
 
     model.eval()
@@ -163,6 +171,30 @@ def initialize_plddt_module(args, device):
             if k is not None
         }
         plddt_out_module.update(tree_unflatten(list(mlx_state_dict.items())))
+    elif args.backend == "jax":
+        # replace torch implementations with jax
+        with open(plddt_module_path, "r") as f:
+            yaml_str = f.read()
+        yaml_str = yaml_str.replace("torch", "jax")
+
+        plddt_config = omegaconf.OmegaConf.create(yaml_str)
+        plddt_out_module = hydra.utils.instantiate(plddt_config)
+
+        graphdef_plddt_module, state_plddt_module = nnx.split(plddt_out_module)
+        second_unflattend_dict = unflatten_state_dict(plddt_checkpoint)
+
+        updated_dict = replace_by_torch_dict(state_plddt_module, second_unflattend_dict)
+        plddt_out_module = nnx.merge(graphdef_plddt_module, updated_dict)
+
+        del (
+            plddt_checkpoint,
+            plddt_config,
+            state_plddt_module,
+            graphdef_plddt_module,
+            second_unflattend_dict,
+            updated_dict,
+            plddt_module_path,
+        )
     else:
         raise NotImplementedError
 
@@ -200,6 +232,20 @@ def initialize_plddt_module(args, device):
             if k is not None
         }
         plddt_latent_module.update(tree_unflatten(list(mlx_state_dict.items())))
+    elif args.backend == "jax":
+        # replace torch implementations with jax
+        with open(plddt_latent_config_path, "r") as f:
+            yaml_str = f.read()
+        plddt_yaml_str = yaml_str.replace("torch", "jax")
+
+        plddt_latent_config = omegaconf.OmegaConf.create(plddt_yaml_str)
+        plddt_latent_module = hydra.utils.instantiate(plddt_latent_config)
+
+        graphdef, state = nnx.split(plddt_latent_module)
+        second_unflattend_dict = unflatten_state_dict(plddt_latent_checkpoint)
+
+        updated_dict = replace_by_torch_dict(state, second_unflattend_dict)
+        plddt_latent_module = nnx.merge(graphdef, updated_dict)
     else:
         raise NotImplementedError
 
@@ -228,6 +274,22 @@ def initialize_esm_model(args, device):
         }
         esm_model_mlx.update(tree_unflatten(list(esm_state_dict_torch.items())))
         esm_model = esm_model_mlx
+    elif args.backend == "jax":
+
+        esm_model_jax = nnx.eval_shape(
+            lambda: ESM2JAX(
+                num_layers=36, embed_dim=2560, attention_heads=40, rngs=nnx.Rngs(0)
+            )
+        )
+        esm_state_dict_torch = esm_model.cpu().state_dict()
+
+        graphdef, state = nnx.split(esm_model_jax)
+        second_unflattend_dict = unflatten_state_dict(esm_state_dict_torch)
+
+        updated_dict = replace_by_torch_dict(state, second_unflattend_dict)
+        esm_model_jax = nnx.merge(graphdef, updated_dict)
+
+        esm_model = esm_model_jax
     else:
         raise NotImplementedError
 
@@ -257,6 +319,8 @@ def initialize_others(args, device):
         sampler_cls = EMSampler
     elif args.backend == "mlx":
         sampler_cls = EMSamplerMLX
+    elif args.backend == "jax":
+        sampler_cls = EMSamplerJAX
     else:
         raise NotImplementedError
 
@@ -286,6 +350,8 @@ def generate_structure(
         noise = torch.randn_like(batch["coords"]).to(device)
     elif args.backend == "mlx":
         noise = mx.random.normal(batch["coords"].shape)
+    elif args.backend == "jax":
+        noise = jax.random.normal(key=jax.random.key(0), shape=batch["coords"].shape)
     else:
         raise NotImplementedError
     out_dict = sampler.sample(model, flow, noise, batch)
@@ -303,6 +369,14 @@ def generate_structure(
             )
         elif args.backend == "mlx":
             t = mx.ones(batch["coords"].shape[0])
+            # use unscaled coords to extract latent for pLDDT prediction
+            out_feat = plddt_latent_module(out_dict["denoised_coords"], t, batch)
+            plddt_out_dict = plddt_out_module(
+                out_feat["latent"],
+                batch,
+            )
+        elif args.backend == "jax":
+            t = jax.numpy.ones(batch["coords"].shape[0])
             # use unscaled coords to extract latent for pLDDT prediction
             out_feat = plddt_latent_module(out_dict["denoised_coords"], t, batch)
             plddt_out_dict = plddt_out_module(
@@ -340,8 +414,9 @@ def predict_structures_from_fastas(args):
         args.backend = "torch"
         print("MLX not available, switch to torch backend.")
 
-    if args.backend == "jax":
-        raise NotImplementedError
+    if args.backend == "jax" and not JAX_AVAILABLE:
+        args.backend = "torch"
+        print("MLX not available, switch to torch backend.")
 
     # initialize models
     model, device = initialize_folding_model(args)

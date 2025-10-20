@@ -40,11 +40,7 @@ try:
 
     from simplefold.model.jax.esm_network import ESM2 as ESM2JAX
     from simplefold.model.jax.sampler import EMSampler as EMSamplerJAX
-    from simplefold.utils.jax_utils import (
-        convert_to_jax_dict,
-        replace_by_torch_dict,
-        unflatten_state_dict,
-    )
+    from simplefold.utils.jax_utils import replace_by_torch_dict, unflatten_state_dict
 
     JAX_AVAILABLE = True
 except:
@@ -345,7 +341,7 @@ class InferenceWrapper:
         if self.backend == "torch":
             esm_model = esm_model.to(self.device)
             af2_to_esm = af2_to_esm.to(self.device)
-            self.esm_model = esm_model.eval()
+            self.esm_model = esm_model
         elif self.backend == "mlx":
             esm_model_mlx = ESM2MLX(num_layers=36, embed_dim=2560, attention_heads=40)
             esm_state_dict_torch = esm_model.cpu().state_dict()
@@ -356,7 +352,7 @@ class InferenceWrapper:
                 if k is not None
             }
             esm_model_mlx.update(tree_unflatten(list(esm_state_dict_torch.items())))
-            self.esm_model = esm_model_mlx.eval()
+            self.esm_model = esm_model_mlx
         elif self.backend == "jax":
 
             esm_model_jax = nnx.eval_shape(
@@ -377,8 +373,9 @@ class InferenceWrapper:
         else:
             raise NotImplementedError
 
-        print(f"pLM ESM-3B loaded with {self.backend} backend.")
+        self.esm_model.eval()
 
+        print(f"pLM ESM-3B loaded with {self.backend} backend.")
         self.esm_dict = esm_dict
         self.af2_to_esm = af2_to_esm
 
@@ -451,7 +448,6 @@ class InferenceWrapper:
         elif self.backend == "mlx":
             noise = mx.random.normal(batch["coords"].shape)
         elif self.backend == "jax":
-            # batch = convert_to_jax_dict(batch)
             noise = jax.random.normal(
                 key=jax.random.key(0), shape=batch["coords"].shape
             )
