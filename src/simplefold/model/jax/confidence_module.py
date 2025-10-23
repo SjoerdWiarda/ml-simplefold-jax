@@ -7,7 +7,7 @@ import jax
 from flax import nnx
 
 
-def compute_aggregated_metric(logits: jax.Array, end=1.0) -> jax.Array:
+def compute_aggregated_metric(logits: jax.Array, end: float = 1.0) -> jax.Array:
     """Compute the metric from the logits.
 
     Parameters
@@ -30,7 +30,7 @@ def compute_aggregated_metric(logits: jax.Array, end=1.0) -> jax.Array:
     )
     probs = nnx.softmax(logits, axis=-1)
     plddt = jax.numpy.sum(
-        probs * bounds.view(*((1,) * len(probs.shape[:-1])), *bounds.shape),
+        probs * bounds.reshape(*((1,) * len(probs.shape[:-1])), *bounds.shape),
         axis=-1,
     )
     return plddt

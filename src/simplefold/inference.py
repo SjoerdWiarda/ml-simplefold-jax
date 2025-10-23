@@ -111,7 +111,7 @@ def initialize_folding_model(args):
         }
         model.update(tree_unflatten(list(mlx_state_dict.items())))
     elif args.backend == "jax":
-        device = jax.local_devices()[0]
+        device = "cpu"  # This is only used for the torch tensors
         # replace torch implementations with jax
         with open(cfg_path, "r") as f:
             yaml_str = f.read()

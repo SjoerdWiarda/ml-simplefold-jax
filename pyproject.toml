@@ -37,7 +37,6 @@ dependencies = [
     "pandas==2.3.1",
     "seaborn==0.13.2",
     "jax[cuda13]",
-    "orbax",
     "flax",
     "fair-esm @ git+https://github.com/facebookresearch/esm.git"
 ]
@@ -59,9 +58,8 @@ simplefold = "simplefold.cli:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/simplefold"]
 
-
 [tool.pytest.ini_options]
-addopts = "--pdbcls=IPython.terminal.debugger:TerminalPdb -vv --pdb" # Custom debugger ipdb, -vv for super verbose (logs if each tests passes and logs full error, --pdb to activate debugger).
+addopts = "--pdbcls=IPython.terminal.debugger:TerminalPdb -vv --pdb"   
 testpaths = [
     "test",
 ]

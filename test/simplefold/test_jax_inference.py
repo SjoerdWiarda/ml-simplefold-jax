@@ -2,9 +2,9 @@ import jax
 
 jax.config.update("jax_traceback_filtering", "off")
 jax.config.update("jax_default_device", "cpu")
-
-
+import os
 import sys
+from pathlib import Path
 
 from simplefold.cli import main
 from simplefold.wrapper import InferenceWrapper, ModelWrapper
@@ -83,12 +83,24 @@ def test_inference() -> None:
 
     assert isinstance(results["plddts"], jax.Array)
     assert jax.numpy.isfinite(results["plddts"]).all()
-    assert results["plddts"].shape == (1, 2912)
+    assert results["plddts"].shape == (1, 351)
+    assert len(save_paths) == 1
 
 
 def test_inference_py(monkeypatch):
     monkeypatch.setattr(
-        sys, "argv", ["simplefold", "--fasta_path", "example.fasta", "--backend", "jax"]
+        sys,
+        "argv",
+        [
+            "simplefold",
+            "--fasta_path",
+            str(Path(__file__).parent / "fasta/example.fasta"),
+            "--backend",
+            "jax",
+        ],
     )
     main()
-    # glob for f"{record.id}_sampled_{i}"
+
+    assert os.path.isfile(
+        "./artifacts/debug_samples/predictions_simplefold_100M/example_sampled_0.cif"
+    )
