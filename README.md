@@ -1,5 +1,5 @@
 
-<h1 align="center"><strong>SimpleFold JAX + NNX Flax implementation</strong></h1>
+<h1 align="center"><strong>SimpleFold JAX + Flax NNX implementation</strong></h1>
 
 <p align="center">
   <img src="assets/jax.webp" width="200"/>
@@ -7,7 +7,7 @@
 </p>
 
 
-This is a fork of https://github.com/apple/ml-simplefold that implements SimpleFold in [JAX](https://docs.jax.dev/en/latest/index.html) and [NNX Flax](https://flax.readthedocs.io/en/stable/). 
+This is a fork of https://github.com/apple/ml-simplefold that implements SimpleFold in [JAX](https://docs.jax.dev/en/latest/index.html) and [Flax NNX](https://flax.readthedocs.io/en/stable/). 
 The code contains several **regression tests** to confirm the equivalent behavior between the `PyTorch` and `JAX/Flax` version. 
 There are several tests that compare parts of the code/modules (such as the [`ESM2`](src/simplefold/model/jax/esm_network.py) and [`FoldingDiT`](src/simplefold/model/jax/architecture.py) model) and assert equivalent output between the [`PyTorch`](src/simplefold/model/torch) and [`JAX`](src/simplefold/model/jax) implementation. 
 As the models get larger, minor precision errors occur, due to propagating errors from floating-point rounding errors.
@@ -15,8 +15,8 @@ As the models get larger, minor precision errors occur, due to propagating error
 
 ## Currently supported:
 
-- Full implementation of the [ESM](https://github.com/facebookresearch/esm.git) model in [`ESM2`](src/simplefold/model/jax/esm_network.py) using JAX/NNX Flax.
-- Full implementation of the [SimpleFold](https://github.com/apple/ml-simplefold) model in [`FoldingDiT`](src/simplefold/model/jax/architecture.py) using JAX/NNX Flax.
+- Full implementation of the [ESM](https://github.com/facebookresearch/esm.git) model in [`ESM2`](src/simplefold/model/jax/esm_network.py) using JAX/Flax NNX.
+- Full implementation of the [SimpleFold](https://github.com/apple/ml-simplefold) model in [`FoldingDiT`](src/simplefold/model/jax/architecture.py) using JAX/Flax NNX.
 - Re-using all the weights/models (including all different sizes/variants and confidence/plddt modules) of the original repository (`PyTorch` weights) and converting them to `JAX` weights and models to be used for inference.
 - [Regression tests](test/simplefold/) verifying that the `ESM2` and `FoldingDiT` modules between `PyTorch` and `JAX` have equivalent results.
 - Updated the notebook [`sample.ipynb`](sample.ipynb) to support the `JAX` backend inference (by default on CPU due to my hardware, but GPU should work).
